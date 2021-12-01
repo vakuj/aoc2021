@@ -5,8 +5,7 @@
 From https://adventofcode.com/2021/day/1
 
 ---
-
-... 
+### Example
 
 * 199 (N/A - no previous measurement)
 * 200 (increased)
@@ -21,6 +20,16 @@ From https://adventofcode.com/2021/day/1
 
 In this example, there are 7 measurements that are larger than the previous measurement.
 
+---
+
+### Part 1
+
 How many measurements are larger than the previous measurement?
 
 ---
+
+### Part 2
+
+Consider sums of a three-measurement sliding window. How many sums are larger than the previous sum?
+
+___

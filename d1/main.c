@@ -3,42 +3,52 @@
 #include <stdint-gcc.h>
 #include <string.h>
 
-#define BUFSIZE 1024
+#define BUFSIZE 2048
 
 int meas[BUFSIZE] = {0};
 int cnt = 0;
 int depths = 0;
+int slide_depths = 0;
 
 void count_depths(void)
 {
     for (size_t i = 1; i < BUFSIZE; i++)
     {
+        if (meas[i] == -1)
+            break;
         if (meas[i] > meas[i - 1])
             depths++;
     }
 }
 
-void insert_meas(char *next)
+void count_sliding(void)
 {
-    if (cnt < BUFSIZE)
+    int prev = meas[0] + meas[1] + meas[2];
+    int curr = 0;
+    for (size_t i = 1; i < BUFSIZE - 1; i++)
     {
-        meas[cnt] = atoi(next);
-        cnt++;
-    }
-    else
-    {
-        count_depths();
-        init_array();
-        meas[cnt] = atoi(next);
+        if (meas[i + 1] == -1)
+            break;
+        curr = meas[i - 1] + meas[i] + meas[i + 1];
+        if (curr > prev)
+            slide_depths++;
+        prev = curr;
     }
 }
 
-void init_array(void)
+void insert_meas(char *next)
+{
+
+    meas[cnt] = atoi(next);
+    cnt++;
+}
+
+void init_array(int *arr)
 {
     cnt = 0;
     for (size_t i = 0; i < BUFSIZE; i++)
     {
-        meas[i] = -1;
+        arr[i] = -1;
     }
 }
 
@@ -47,7 +57,7 @@ int main()
     char next[255], filename[30];
     FILE *fp;
 
-    init_array();
+    init_array(meas);
 
     printf("Measurement file name:\n");
     gets(filename);
@@ -62,14 +72,14 @@ int main()
 
     while (fgets(next, 255, fp) != NULL)
     {
-        printf("%s", next);
         insert_meas(next);
     }
 
-    printf("\n");
     fclose(fp);
     count_depths();
     printf("Depths increase count: %d\n", depths);
+    count_sliding();
+    printf("Sliding depths increase count: %d\n", slide_depths);
 
     return 0;
 }
