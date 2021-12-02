@@ -40,7 +40,7 @@ void parse_file(FILE *fp, void func(char *))
     char next[BUFSIZE];
     while (fgets(next, 255, fp) != NULL)
     {
-        parse_line(next);
+        func(next);
     }
     fclose(fp);
 }
