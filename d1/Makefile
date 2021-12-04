@@ -1,7 +1,10 @@
 CC=gcc
 CFLAGS=-g -Wall
-OBJS=main.o 
-BIN=main
+COMS=../common
+SRCS= $(wildcard $(CURDIR)/*.c $(COMS)/*.c)
+OBJS=main.o $(COMS)/common.o
+BIN=main 
+VERBOSE = FALSE
 
 all:$(BIN)
 
@@ -14,5 +17,13 @@ $(BIN): $(OBJS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
+test:
+	echo start  `date +%s` > test.log
+	for number in `seq 1 100` ; do \
+		./main input ; \
+	done
+	echo finish `date +%s` >> test.log 
+	cat test.log
+
 clean:
-	rm -r $(BIN) *.o
+	rm -rv $(BIN) *.o $(COMS)/*.o *.log
