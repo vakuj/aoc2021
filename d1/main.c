@@ -3,16 +3,18 @@
 #include <stdint-gcc.h>
 #include <string.h>
 
-#define BUFSIZE 2048
+#include "../common/common.h"
 
-int meas[BUFSIZE] = {0};
-int cnt = 0;
+#define ARRSIZE 2048
+
+int meas[ARRSIZE] = {0};
+int count = 0;
 int depths = 0;
 int slide_depths = 0;
 
 void count_depths(void)
 {
-    for (size_t i = 1; i < BUFSIZE; i++)
+    for (size_t i = 1; i < count; i++)
     {
         if (meas[i] == -1)
             break;
@@ -25,10 +27,10 @@ void count_sliding(void)
 {
     int prev = meas[0] + meas[1] + meas[2];
     int curr = 0;
-    for (size_t i = 1; i < BUFSIZE - 1; i++)
+    for (size_t i = 1; i < count - 1; i++)
     {
-        if (meas[i + 1] == -1)
-            break;
+        // if (meas[i + 1] == -1)
+        //     break;
         curr = meas[i - 1] + meas[i] + meas[i + 1];
         if (curr > prev)
             slide_depths++;
@@ -38,48 +40,54 @@ void count_sliding(void)
 
 void insert_meas(char *next)
 {
-
-    meas[cnt] = atoi(next);
-    cnt++;
+    meas[count] = atoi(next);
+    count++;
 }
 
 void init_array(int *arr)
 {
-    cnt = 0;
-    for (size_t i = 0; i < BUFSIZE; i++)
+    count = 0;
+    for (size_t i = 0; i < ARRSIZE; i++)
     {
         arr[i] = -1;
     }
 }
 
-int main()
+int main(int argc, char *argv[])
 {
-    char next[255], filename[30];
+    char next[BUFSIZE], outp[BUFSIZE] = "output";
     FILE *fp;
+    // init_array(meas);
 
-    init_array(meas);
-
-    printf("Measurement file name:\n");
-    gets(filename);
-    printf("\n");
-    fp = fopen(filename, "r");
-
-    if (fp == NULL)
+    if (argc > 3)
     {
-        perror("Could not open file");
+        perror("Usages:\t./<name>\n\t./<name> <input file>\n\t./<name> <input file> <output file>\n");
         exit(EXIT_FAILURE);
     }
+    if (argc == 1)
+        fp = open_file("Meaurement file name", NULL);
+    if (argc == 2)
+        fp = open_file("", argv[1]);
+    if (argc == 3)
+    {
+        fp = open_file("", argv[1]);
+        strcpy(outp, argv[2]);
+    }
 
-    while (fgets(next, 255, fp) != NULL)
+    while (fgets(next, BUFSIZE, fp) != NULL)
     {
         insert_meas(next);
     }
 
     fclose(fp);
+
     count_depths();
-    printf("Depths increase count: %d\n", depths);
     count_sliding();
-    printf("Sliding depths increase count: %d\n", slide_depths);
+
+    fp = fopen(outp, "w");
+    fprintf(fp, "Part 1: %d\n", depths);
+    fprintf(fp, "Part 2: %d\n", slide_depths);
+    fclose(fp);
 
     return 0;
 }

@@ -3,14 +3,13 @@
 #include <stdint-gcc.h>
 #include <string.h>
 
-#define BUFSIZE 255
+#include "../common/common.h"
 
 #define UP "up"
 #define DOWN "down"
 #define FORW "forward"
 
 int depths = 0,
-    aim = 0,
     forward = 0,
     aimed_depths = 0;
 
@@ -38,40 +37,40 @@ void parse_line(char *line)
 void parse_file(FILE *fp, void func(char *))
 {
     char next[BUFSIZE];
-    while (fgets(next, 255, fp) != NULL)
+    while (fgets(next, BUFSIZE, fp) != NULL)
     {
         func(next);
     }
-    fclose(fp);
 }
 
-FILE *open_file(char *msg)
+int main(int argc, char *argv[])
 {
-    FILE *fp;
-    char filename[BUFSIZE];
-    printf("%s:\n", msg);
-    fgets(filename, BUFSIZE, stdin);
-    fp = fopen(strtok(filename, "\n"), "r");
-    if (fp == NULL)
+
+    FILE *fp; // = open_file("Pilot file name");
+    char outp[BUFSIZE] = "output";
+
+    if (argc > 3)
     {
-        perror("Could not open file");
+        perror("Usages:\t./<name>\n\t./<name> <input file>\n\t./<name> <input file> <output file>\n");
         exit(EXIT_FAILURE);
     }
-    return fp;
-}
+    if (argc == 1)
+        fp = open_file("Pilot file name", NULL);
+    if (argc == 2)
+        fp = open_file("", argv[1]);
+    if (argc == 3)
+    {
+        fp = open_file("", argv[1]);
+        strcpy(outp, argv[2]);
+    }
 
-int main()
-{
-
-    FILE *fp = open_file("Pilot file name");
     parse_file(fp, parse_line);
-
-    printf("\n");
-    printf("Depth: %d\nForward: %d\n", depths, forward);
-    printf("Depth x Forward: %d\n", depths * forward);
-    printf("\n");
-    printf("Aimed depth: %d\n", aimed_depths);
-    printf("Aimed Depth x Forward: %d\n", aimed_depths * forward);
-
+    fclose(fp);
+    fp = fopen(outp, "w");
+    fprintf(fp, "Part 1:\n\tDpth: %d\n\tFwrd: %d\n", depths, forward);
+    fprintf(fp, " Dpth x Fwrd: %d\n", depths * forward);
+    fprintf(fp, "\nPart 2:\n\tAimed Dpth: %d\n", aimed_depths);
+    fprintf(fp, " Aimed Dpth x Fwrd: %d\n", aimed_depths * forward);
+    fclose(fp);
     return 0;
 }

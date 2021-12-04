@@ -3,11 +3,7 @@
 #include <stdint-gcc.h>
 #include <string.h>
 
-#define BUFSIZE 255
-
-#define UP "up"
-#define DOWN "down"
-#define FORW "forward"
+#include "../common/common.h"
 
 #define ONE "1"
 #define ZERO "0"
@@ -139,27 +135,29 @@ void parse_support_rating(FILE *fp)
     }
 }
 
-FILE *open_file(char *msg)
+int main(int argc, char *argv[])
 {
     FILE *fp;
-    char filename[BUFSIZE];
-    printf("%s:\n", msg);
-    fgets(filename, BUFSIZE, stdin);
-    fp = fopen(strtok(filename, "\n"), "r");
-    if (fp == NULL)
-    {
-        perror("Could not open file");
-        exit(EXIT_FAILURE);
-    }
-    return fp;
-}
-
-int main()
-{
+    char outp[BUFSIZE] = "output";
     int gamma = 0, epsilon = 0;
     int oxy = 0, co2 = 0;
     char tmp[BUFSIZE] = "";
-    FILE *fp = open_file("Diagnostic file name");
+
+    if (argc > 3)
+    {
+        perror("Usages:\t./<name>\n\t./<name> <input file>\n\t./<name> <input file> <output file>\n");
+        exit(EXIT_FAILURE);
+    }
+    if (argc == 1)
+        fp = open_file("Diagnostic file name", NULL);
+    if (argc == 2)
+        fp = open_file("", argv[1]);
+    if (argc == 3)
+    {
+        fp = open_file("", argv[1]);
+        strcpy(outp, argv[2]);
+    }
+
     parse_file(fp, parse_bin_line);
     parse_support_rating(fp);
     fclose(fp);
@@ -167,13 +165,9 @@ int main()
     for (size_t i = 0; i < bins; i++)
     {
         if (zeros[i] > ones[i])
-        {
             epsilon |= (1 << (bins - i - 1));
-        }
         if (ones[i] > zeros[i])
-        {
             gamma |= (1 << (bins - i - 1));
-        }
 
         tmp[0] = oxy_str[i];
         if (strcmp(tmp, ONE) == 0)
@@ -183,11 +177,11 @@ int main()
             co2 |= (1 << (bins - i - 1));
     }
 
-    printf("gamma: %d\nepsilon: %d\n", gamma, epsilon);
-    printf("gamma x epsilon: %d\n", gamma * epsilon);
-
-    printf("oxy: %d\nco2: %d\n", oxy, co2);
-    printf("oxy x co2: %d\n", oxy * co2);
-
+    fp = fopen(outp, "w");
+    fprintf(fp, "Part 1:\n\tgam: %d\n\teps: %d\n", gamma, epsilon);
+    fprintf(fp, "  gam x eps: %d\n", gamma * epsilon);
+    fprintf(fp, "\nPart 2:\n\toxy: %d\n\tco2: %d\n", oxy, co2);
+    fprintf(fp, "  oxy x co2: %d\n", oxy * co2);
+    fclose(fp);
     return 0;
 }

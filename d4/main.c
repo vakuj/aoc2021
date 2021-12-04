@@ -4,11 +4,13 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define BUFSIZE 512
+#include "../common/common.h"
+
 #define GRID 5
 
 char head[1024][BUFSIZE];
 char grid[1024][BUFSIZE];
+int order[1024] = {0}, result[1024] = {0};
 int bingo_length, head_length, nbr_grids;
 
 void print_line(char *line, int line_nbr)
@@ -32,7 +34,7 @@ void parse_file(FILE *fp, void func(char *, int))
     int head_ctr = 0;
 
     fgets(next, BUFSIZE, fp);
-    printf("Header:\n\t%s\n", next);
+    // printf("Header:\n\t%s\n", next);
     ptr = strtok(next, ",\n");
     while (ptr != NULL)
     {
@@ -40,7 +42,7 @@ void parse_file(FILE *fp, void func(char *, int))
         ptr = strtok(NULL, ",\n");
         head_ctr++;
     }
-    printf("Bingo grid:\n");
+    // printf("Bingo grid:\n");
     head_length = head_ctr;
 
     while (fgets(next, BUFSIZE, fp) != NULL)
@@ -50,7 +52,7 @@ void parse_file(FILE *fp, void func(char *, int))
         {
             if (strlen(ptr) > 1)
             {
-                func(next, next_ctr);
+                // func(next, next_ctr);
                 strcpy(grid[next_ctr], next);
                 next_ctr++;
             }
@@ -161,19 +163,14 @@ void play_bingo(void)
                     nbr = atoi(head[head_ctr]);
                     grid_sum = sum_grid(row / GRID);
                     grid_order[row / GRID] = 1;
-                    printf("\n");
-                    printf("winner row: %d\n", row);
-                    printf("winner grid: %d\n", row / GRID);
-                    printf("last number: %d\n", nbr);
-                    printf("sum of grid: %d\n", grid_sum);
-                    printf("last x sum: %d\n", nbr * grid_sum);
-                    // printf("Remaining: \n");
-                    // print_grid(0, bingo_length);
+
                     sum = 0;
                     for (int i = 0; i < nbr_grids; i++)
                     {
                         sum += grid_order[i];
                     }
+                    order[sum] = row / GRID;
+                    result[sum] = nbr * grid_sum;
                     if (sum == nbr_grids)
                     {
                         bingo = true;
@@ -188,30 +185,38 @@ void play_bingo(void)
     return;
 }
 
-FILE *open_file(char *msg)
+int main(int argc, char *argv[])
 {
+    char outp[BUFSIZE] = "output";
     FILE *fp;
-    char filename[BUFSIZE];
-    printf("%s:\n", msg);
-    fgets(filename, BUFSIZE, stdin);
-    fp = fopen(strtok(filename, "\n"), "r");
-    if (fp == NULL)
+    if (argc > 3)
     {
-        perror("Could not open file");
+        perror("Usages:\t./<name>\n\t./<name> <input file>\n\t./<name> <input file> <output file>\n");
         exit(EXIT_FAILURE);
     }
-    return fp;
-}
+    if (argc == 1)
+        fp = open_file("Bingo file name", NULL);
+    if (argc == 2)
+        fp = open_file("", argv[1]);
+    if (argc == 3)
+    {
+        fp = open_file("", argv[1]);
+        strcpy(outp, argv[2]);
+    }
 
-int main()
-{
-    FILE *fp = open_file("Bingo file name");
     parse_file(fp, print_line);
     fclose(fp);
 
-    printf("\nPLAY!\n\n");
     play_bingo();
-    printf("\nDONE!\n");
+
+    fp = fopen(outp, "w");
+    fprintf(fp, "%5s %5s %5s\n", "place", "grid", "result");
+    for (int i = 1; i < nbr_grids + 1; i++)
+    {
+        fprintf(fp, "%5d %5d %5d\n", i, order[i], result[i]);
+    }
+    fclose(fp);
+    printf("Bingo done, see %s for result\n", outp);
 
     return 0;
 }
