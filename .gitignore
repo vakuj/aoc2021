@@ -1,5 +1,6 @@
 # VSCode stuff
 */.vscode/*
+.vscode/*
 
 # Prerequisites
 *.d
