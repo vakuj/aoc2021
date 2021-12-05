@@ -12,6 +12,8 @@
 #define X2 2
 #define Y2 3
 
+#define TOK " ,->\n"
+
 int grid[GRID][GRID] = {0};
 int coor[GRID][4] = {0};
 int max_coor = 0;
@@ -45,21 +47,25 @@ void print_vents(int start, int stop)
 int check_valid(int loc, bool diag)
 {
     /** check if valid move
-     *  returns move type if valid
-     *  0: single dot
-     *  1: move in x-dir
-     *  2: move in y-dir
-     *  3: move on diagonal (both x-dir and y-dir)
-     *  returns -1 if invalid
+     *  returns "move type" 
+     * -1: Invalid "move type", should be ignored
+     *  0: single dot, no iteration required
+     *  1: move only in x-dir
+     *  2: move only in y-dir
+     *  3: move on diagonal (move in both x-dir and y-dir)
+     *
      */
-    if (!diag)
+
+    if ((coor[loc][X1] == coor[loc][X2]) && (coor[loc][Y1] == coor[loc][Y2]))
+        return 0;
+    if ((coor[loc][X1] != coor[loc][X2]) && (coor[loc][Y1] == coor[loc][Y2]))
+        return 1;
+    if ((coor[loc][X1] == coor[loc][X2]) && (coor[loc][Y1] != coor[loc][Y2]))
+        return 2;
+    if ((coor[loc][X1] != coor[loc][X2]) && (coor[loc][Y1] != coor[loc][Y2]))
     {
-        if ((coor[loc][X1] == coor[loc][X2]) && (coor[loc][Y1] == coor[loc][Y2]))
-            return 0;
-        if ((coor[loc][X1] != coor[loc][X2]) && (coor[loc][Y1] == coor[loc][Y2]))
-            return 1;
-        if ((coor[loc][X1] == coor[loc][X2]) && (coor[loc][Y1] != coor[loc][Y2]))
-            return 2;
+        if (diag)
+            return 3;
         return -1;
     }
 
@@ -92,7 +98,9 @@ void insert_vents(bool diag)
 
     int move = -1,
         start = 0,
-        stop = 0;
+        stop = 0,
+        xdir = 0,
+        ydir = 0;
 
     for (int i = 0; i < nbr_coor; i++)
     {
@@ -111,7 +119,7 @@ void insert_vents(bool diag)
             if (move == 0)
             {
 
-                grid[coor[i][Y1]][coor[i][X1]] += 1;
+                grid[coor[i][X1]][coor[i][Y1]] += 1;
             }
             if (move == 1)
             {
@@ -127,7 +135,7 @@ void insert_vents(bool diag)
                 }
                 for (int k = start; k <= stop; k++)
                 {
-                    grid[coor[i][Y1]][k] += 1;
+                    grid[k][coor[i][Y1]] += 1;
                 }
             }
             if (move == 2)
@@ -144,13 +152,34 @@ void insert_vents(bool diag)
                 }
                 for (int k = start; k <= stop; k++)
                 {
-                    grid[k][coor[i][X1]] += 1;
+                    grid[coor[i][X1]][k] += 1;
+                }
+            }
+            if (move == 3)
+            {
+                if (coor[i][Y1] > coor[i][Y2])
+                {
+                    start = coor[i][Y2];
+                    stop = coor[i][Y1];
+                    ydir = -1;
+                }
+                else
+                {
+                    start = coor[i][Y1];
+                    stop = coor[i][Y2];
+                    ydir = +1;
+                }
+                if (coor[i][X1] > coor[i][X2])
+                    xdir = -1;
+                else
+                    xdir = 1;
+
+                for (int k = 0; k <= stop - start; k++)
+                {
+                    grid[coor[i][X1] + (xdir * k)][coor[i][Y1] + (ydir * k)] += 1;
                 }
             }
         }
-        print_coor(i, i + 1);
-        printf("Move type: %d\n", move);
-        // print_vents(0, max_coor);
     }
 }
 
@@ -164,7 +193,7 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
     while (fgets(next, BUFSIZE, fp) != NULL)
     {
         coor_ctr = 0;
-        ptr = strtok(next, " ,->\n");
+        ptr = strtok(next, TOK);
         while (ptr != NULL)
         {
             if (strlen(ptr) >= 1)
@@ -174,7 +203,7 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
                 coor[next_ctr][coor_ctr] = atoi(ptr);
                 coor_ctr++;
             }
-            ptr = strtok(NULL, " ,->\n");
+            ptr = strtok(NULL, TOK);
         }
         next_ctr++;
     }
@@ -208,20 +237,17 @@ int main(int argc, char *argv[])
 
     insert_vents(false);
     nbr_vents1 = count_vents(danger_lim);
-    print_vents(0, max_coor);
+
+    /** clear prev grid for safety*/
     memset(grid, 0, sizeof(grid));
+
     insert_vents(true);
-    printf("\n");
-    print_vents(0, max_coor);
     nbr_vents2 = count_vents(danger_lim);
 
-    printf("Part 1:\nDanger vents: %d (>= %d)\n\n", nbr_vents1, danger_lim);
-    printf("Part 2:\nDanger vents: %d (>= %d)\n", nbr_vents2, danger_lim);
-
-    // fp = fopen(outp, "w");
-    // fprintf(fp, "%5s %5s %5s\n", "place", "grid", "result");
-    // fprintf(fp, "Part 1:\nDanger vents: %d (>= %d)\n", nbr_vents1, danger_lim);
-    // fclose(fp);
+    fp = fopen(outp, "w");
+    fprintf(fp, "Part 1: (>= %d)\nDanger vents: %d \n\n", danger_lim, nbr_vents1);
+    fprintf(fp, "Part 2: (>= %d)\nDanger vents: %d \n", danger_lim, nbr_vents2);
+    fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
 
     return 0;
