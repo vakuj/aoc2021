@@ -211,7 +211,12 @@ int main(int argc, char *argv[])
 
     fp = fopen(outp, "w");
     fprintf(fp, "%5s %5s %5s\n", "place", "grid", "result");
-    for (int i = 1; i < nbr_grids + 1; i++)
+    for (int i = 1; i <= 3; i++)
+    {
+        fprintf(fp, "%5d %5d %5d\n", i, order[i], result[i]);
+    }
+    fprintf(fp, "%5s %5s %5s\n", "...", "...", "...");
+    for (int i = nbr_grids - 2; i <= nbr_grids; i++)
     {
         fprintf(fp, "%5d %5d %5d\n", i, order[i], result[i]);
     }
