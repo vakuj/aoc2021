@@ -1,5 +1,6 @@
 import numpy as np
 from numba import jit, prange
+import matplotlib.pyplot as plt
 
 
 def read_file(filename):
@@ -27,20 +28,27 @@ def extend_state(state, new_spawn):
 
 def evolve(state, days):
     new_spawn = 0
-    while days > 0:
-        print(f"Days remaining {days:.0f}")
+    fishes = state.shape[0]
+    itr = 0
+    while itr < days:
+        if state.shape[0] / fishes >= 2:
+            fishes = state.shape[0]
+            print(f"{itr} : {fishes}")
+
         state, new_spawn = update_states(state)
         state = extend_state(state, new_spawn)
-        days -= 1
-
-    return state
+        itr += 1
+    return state.shape[0]
 
 
 if __name__ == "__main__":
-    days = 256
+    days = 200
     filename = "input"
+    # filename = "test1"
 
     state = read_file(filename)
     print(state.shape)
-    state = evolve(state, days)
-    print(f"Fish after {days} days: {state.shape[0]}")
+    print(state.shape[0]*2 * (days/(18-12)))
+
+    seg_fish = evolve(state, days)
+    print(f"Fish after {days} days: {seg_fish}")
