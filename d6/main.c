@@ -6,12 +6,13 @@
 
 #include "../common/common.h"
 
-#define ARRSIZE 1000000
+#define ARRSIZE 1024
 
 #define TOK ",\n"
 
 int state[ARRSIZE] = {0};
-int added = 0;
+unsigned long int spawn[ARRSIZE] = {0};
+unsigned long int added = 0;
 
 void print_line(char *line, int line_nbr)
 {
@@ -27,22 +28,20 @@ void print_state(int start, int end)
     printf("\n");
 }
 
-int count_fish(void)
+unsigned long int count_fish(int days)
 {
-    for (size_t i = ARRSIZE - 1; i > 0; i--)
+    unsigned long int fish = added;
+    for (size_t i = 0; i < days; i++)
     {
-        if (state[i] > 0)
-        {
-            return i;
-        }
+        fish += spawn[i];
     }
-
-    return 0;
+    return fish;
 }
 
-void evolve(int days)
+volatile void evolve(int days)
 {
     int new_spawn;
+    int temp_state = 0;
     for (size_t itr = 0; itr < days; itr++)
     {
         new_spawn = 0;
@@ -55,11 +54,23 @@ void evolve(int days)
                 new_spawn++;
             }
         }
-        for (size_t i = added; i < added + new_spawn; i++)
+        spawn[itr] = new_spawn;
+    }
+    for (size_t i = 0; i < days; i++)
+    {
+        if (spawn[i] > 0)
         {
-            state[i] = 8;
+            temp_state = 8;
+            for (size_t j = i + 1; j < days; j++)
+            {
+                temp_state--;
+                if (temp_state == -1)
+                {
+                    temp_state = 6;
+                    spawn[j] += spawn[i];
+                }
+            }
         }
-        added += new_spawn;
     }
 }
 
@@ -93,8 +104,9 @@ int main(int argc, char *argv[])
 {
     char outp[BUFSIZE] = "output";
     FILE *fp;
-    int days = 0;
-    if (argc > 3)
+    int d1 = 80;
+    unsigned long int fishes1;
+    if (argc > 4)
     {
         perror("Usages:\t./<name>\n\t./<name> <input file>\n\t./<name> <input file> <output file>\n");
         exit(EXIT_FAILURE);
@@ -108,21 +120,22 @@ int main(int argc, char *argv[])
         fp = open_file("", argv[1]);
         strcpy(outp, argv[2]);
     }
+    if (argc == 4)
+    {
+        fp = open_file("", argv[1]);
+        strcpy(outp, argv[2]);
+        d1 = atoi(argv[3]);
+    }
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    // printf("Initial state: \n");
-    // print_state(0, added);
 
-    days = 80;
-    evolve(days);
-    fp = fopen(outp, "w");
-    fprintf(fp, "After %d days total of %d fish\n", days, added);
+    evolve(d1);
+    fishes1 = count_fish(d1);
+
+    fp = fopen(outp, "a+");
+    fprintf(fp, "Simulated %d days -> %ld lanternfish!\n", d1, fishes1);
     fclose(fp);
-
-    // days = 256;
-    // evolve(days);
-    // fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
 }
