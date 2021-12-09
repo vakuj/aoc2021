@@ -178,21 +178,13 @@ unsigned long int decode(int index)
                 value += power * 9;
             else // 0
             {
-                printf("ZERO with power: %d\n", power);
                 value += 0;
             }
         }
-        // printf(" -> %d: %s\n", value, ptr);
-        if (value > 1)
+        if (power > 1)
             power = power / 10;
         ptr = strtok(NULL, SPACE);
     }
-    // for (size_t i = 0; i < 10; i++)
-    // {
-    //     printf("%2ld: %s\n", i, order[i]);
-    // }
-    // printf("%40s -> %ld\n", post_segs[index], value);
-
     return value;
 }
 
@@ -203,8 +195,6 @@ unsigned long int decode_all(void)
     {
         decoded[i] = decode(i);
         sum += decoded[i];
-        printf("%3d: %4d -> %ld\n", i, decoded[i], sum);
-        // sum += decode(i);
     }
     return sum;
 }
@@ -262,14 +252,12 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    // unsigned long int cnt1 = count_easy(added);
-    // printf("Counted easy post segs: %ld\n", cnt1);
+    unsigned long int cnt1 = count_easy(added);
     unsigned long int cnt2 = decode_all();
-    printf("Decoded count post segs: %ld\n", cnt2);
-    // 1149557 to high
-    // fp = fopen(outp, "w");
-    // fprintf(fp, "Simulated %d days -> %ld lanternfish!\n", d1, fishes1);
-    // fclose(fp);
+    fp = fopen(outp, "w");
+    fprintf(fp, "Counted 1,4,7 and 8 segments: %ld\n", cnt1);
+    fprintf(fp, "Sum of decoded segments: %ld\n", cnt2);
+    fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
 }
