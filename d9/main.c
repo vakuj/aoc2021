@@ -12,10 +12,17 @@
 #define SPACE " "
 #define SCANCHR "0123456789"
 
+#define ORIG 0
+#define UP 1
+#define DOWN 2
+#define LEFT 3
+#define RIGHT 4
+
 int heights[ARRSIZE][ARRSIZE] = {0};
-int decoded[ARRSIZE] = {0};
+int bsize[ARRSIZE] = {0};
 int xlen = 0;
 int ylen = 0;
+int bind = 0;
 
 void print_line(char *line, int line_nbr)
 {
@@ -39,6 +46,80 @@ int check_risk(int this, int top, int bot, int left, int right)
         return (1 + this);
     return 0;
 }
+
+int count_bsize(size_t i, size_t j, int dir, int ctr)
+{
+    if (heights[i][j] == 9)
+    {
+        return ctr;
+    }
+
+    if (dir == ORIG) // try go to all directions
+    {
+        ctr++;
+        ctr = count_bsize(i - 1, j, UP, ctr);
+        printf("(%ld,%ld) = %d from up\n", i, j, ctr);
+        ctr = count_bsize(i + 1, j, DOWN, ctr);
+        printf("(%ld,%ld) = %d from down\n", i, j, ctr);
+        ctr = count_bsize(i, j - 1, LEFT, ctr);
+        printf("(%ld,%ld) = %d from left\n", i, j, ctr);
+        ctr = count_bsize(i, j + 1, RIGHT, ctr);
+        printf("(%ld,%ld) = %d from right\n", i, j, ctr);
+    }
+    if (dir == UP) // going up -> don't go down
+    {
+        // ctr = count_bsize(i, j + 1, DOWN, ctr);
+        if (heights[i][j] > heights[i + 1][j])
+        {
+            ctr++;
+            ctr = count_bsize(i - 1, j, UP, ctr);
+            // ctr = count_bsize(i + 1, j, DOWN, ctr);
+            ctr = count_bsize(i, j - 1, LEFT, ctr);
+            ctr = count_bsize(i, j + 1, RIGHT, ctr);
+        }
+    }
+    if (dir == DOWN) // going down -> don't go up
+    {
+        // ctr = count_bsize(i, j - 1, UP, ctr);
+
+        if (heights[i][j] > heights[i - 1][j])
+        {
+            ctr++;
+            // ctr = count_bsize(i - 1, j, UP, ctr);
+            ctr = count_bsize(i + 1, j, DOWN, ctr);
+            ctr = count_bsize(i, j - 1, LEFT, ctr);
+            ctr = count_bsize(i, j + 1, RIGHT, ctr);
+        }
+    }
+    if (dir == LEFT) // going left -> don't go right
+    {
+        // ctr = count_bsize(i + 1, j, RIGHT, ctr);
+
+        if (heights[i][j] > heights[i][j + 1])
+        {
+            ctr++;
+            ctr = count_bsize(i - 1, j, UP, ctr);
+            // ctr = count_bsize(i + 1, j, DOWN, ctr);
+            ctr = count_bsize(i, j - 1, LEFT, ctr);
+            // ctr = count_bsize(i, j + 1, RIGHT, ctr);
+        }
+    }
+    if (dir == RIGHT) // going right -> don't go left
+    {
+        // ctr = count_bsize(i - 1, j, LEFT, ctr);
+        if (heights[i][j] > heights[i][j - 1])
+        {
+            ctr++;
+            // ctr = count_bsize(i - 1, j, UP, ctr);
+            ctr = count_bsize(i + 1, j, DOWN, ctr);
+            // ctr = count_bsize(i, j - 1, LEFT, ctr);
+            ctr = count_bsize(i, j + 1, RIGHT, ctr);
+        }
+    }
+
+    return ctr;
+}
+
 void fill_border(void)
 {
     for (size_t i = 0; i <= ylen; i++)
@@ -56,14 +137,21 @@ void fill_border(void)
         }
     }
 }
+
 int count_risk(void)
 {
     int risk = 0;
+    int tmp = 0;
     for (size_t i = 1; i < ylen; i++)
     {
         for (size_t j = 1; j < xlen; j++)
         {
-            risk += check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
+            tmp = check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
+            if (tmp > 0)
+            {
+                bsize[bind] = count_bsize(i, j, 0, 0);
+                risk += tmp;
+            }
         }
     }
     return risk;
