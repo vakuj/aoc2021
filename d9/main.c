@@ -24,9 +24,9 @@ void print_line(char *line, int line_nbr)
 
 void print_arr(void)
 {
-    for (size_t i = 0; i < ylen; i++)
+    for (size_t i = 0; i <= ylen; i++)
     {
-        for (size_t j = 0; j < xlen; j++)
+        for (size_t j = 0; j <= xlen; j++)
         {
             printf("%2d", heights[i][j]);
         }
@@ -39,36 +39,32 @@ int check_risk(int this, int top, int bot, int left, int right)
         return (1 + this);
     return 0;
 }
+void fill_border(void)
+{
+    for (size_t i = 0; i <= ylen; i++)
+    {
+        for (size_t j = 0; j <= xlen; j++)
+        {
+            if (i == 0)
+                heights[i][j] = 9;
+            else if (i == ylen)
+                heights[i][j] = 9;
+            else if (j == 0)
+                heights[i][j] = 9;
+            else if (j == xlen)
+                heights[i][j] = 9;
+        }
+    }
+}
 int count_risk(void)
 {
     int risk = 0;
-    for (size_t i = 0; i < ylen; i++)
+    for (size_t i = 1; i < ylen; i++)
     {
-        for (size_t j = 0; j < xlen; j++)
+        for (size_t j = 1; j < xlen; j++)
         {
-            if ((i == 0) && (j == 0))
-            {
-                risk += check_risk(heights[i][j], 9, heights[i + 1][j], 9, heights[i][j + 1]);
-            }
-            else if ((i == xlen - 1) && (j == ylen - 1))
-            {
-                risk += check_risk(heights[i][j], heights[i - 1][j], 9, heights[i][j - 1], 9);
-            }
-            else if (j == 0)
-            {
-                risk += check_risk(heights[i][j], heights[i - 1][j], 9, heights[i][j - 1], 9);
-            }
-            else if (j == ylen - 1)
-            {
-                risk += check_risk(heights[i][j], heights[i - 1][j], 9, heights[i][j - 1], 9);
-            }
-            else
-            {
-                risk += check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
-            }
-            printf("%2d", heights[i][j]);
+            risk += check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
         }
-        printf("\n");
     }
     return risk;
 }
@@ -77,13 +73,12 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
 {
     char next[BUFSIZE];
     char *ptr;
-    int next_ctr = 0;
+    int next_ctr = 1;
     int ptr_ctr = 0;
-
     while (fgets(next, BUFSIZE, fp) != NULL)
     {
-        xlen = strlen(next);
-        ptr_ctr = 0;
+        xlen = strlen(next) + 1;
+        ptr_ctr = 1;
         ptr = strpbrk(next, SCANCHR);
         while (ptr != NULL)
         {
@@ -95,6 +90,7 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
         next_ctr++;
     }
     ylen += next_ctr;
+    fill_border();
 }
 
 int main(int argc, char *argv[])
