@@ -18,8 +18,16 @@
 #define LEFT 3
 #define RIGHT 4
 
+typedef struct
+{
+    int x;
+    int y;
+} coord;
+
 int heights[ARRSIZE][ARRSIZE] = {0};
 int bsize[ARRSIZE] = {0};
+coord bsites[ARRSIZE];
+int coordind = 0;
 int xlen = 0;
 int ylen = 0;
 int bind = 0;
@@ -40,6 +48,14 @@ void print_arr(void)
         printf("\n");
     }
 }
+
+void print_gen(int *arr, int *len)
+{
+    for (size_t i = 0; i < *len; i++)
+    {
+        printf("%d\n", arr[i]);
+    }
+}
 int check_risk(int this, int top, int bot, int left, int right)
 {
     if ((this < top) && (this < bot) && (this < left) && (this < right))
@@ -47,74 +63,58 @@ int check_risk(int this, int top, int bot, int left, int right)
     return 0;
 }
 
-int count_bsize(size_t i, size_t j, int dir, int ctr)
+bool visited(coord this)
 {
-    if (heights[i][j] == 9)
+    if (coordind == 0)
+        return false;
+    else
     {
+        for (size_t i = 0; i < coordind; i++)
+        {
+            if (this.x == bsites[i].x && this.y == bsites[i].y)
+                return true;
+        }
+    }
+    return false;
+}
+void add_visit(coord this)
+{
+
+    bsites[coordind].x = this.x;
+    bsites[coordind].y = this.y;
+    coordind++;
+}
+
+int count_bsize(coord this, coord prev, int ctr)
+{
+    coord next;
+    if (this.x == 0 || this.y == 0 || this.x > xlen || this.y > ylen)
         return ctr;
-    }
-
-    if (dir == ORIG) // try go to all directions
+    if (heights[this.y][this.x] == 9)
+        return ctr;
+    if (visited(this))
+        return ctr;
+    if (heights[this.y][this.x] > heights[prev.y][prev.x])
     {
+        add_visit(this);
         ctr++;
-        ctr = count_bsize(i - 1, j, UP, ctr);
-        printf("(%ld,%ld) = %d from up\n", i, j, ctr);
-        ctr = count_bsize(i + 1, j, DOWN, ctr);
-        printf("(%ld,%ld) = %d from down\n", i, j, ctr);
-        ctr = count_bsize(i, j - 1, LEFT, ctr);
-        printf("(%ld,%ld) = %d from left\n", i, j, ctr);
-        ctr = count_bsize(i, j + 1, RIGHT, ctr);
-        printf("(%ld,%ld) = %d from right\n", i, j, ctr);
-    }
-    if (dir == UP) // going up -> don't go down
-    {
-        // ctr = count_bsize(i, j + 1, DOWN, ctr);
-        if (heights[i][j] > heights[i + 1][j])
-        {
-            ctr++;
-            ctr = count_bsize(i - 1, j, UP, ctr);
-            // ctr = count_bsize(i + 1, j, DOWN, ctr);
-            ctr = count_bsize(i, j - 1, LEFT, ctr);
-            ctr = count_bsize(i, j + 1, RIGHT, ctr);
-        }
-    }
-    if (dir == DOWN) // going down -> don't go up
-    {
-        // ctr = count_bsize(i, j - 1, UP, ctr);
 
-        if (heights[i][j] > heights[i - 1][j])
-        {
-            ctr++;
-            // ctr = count_bsize(i - 1, j, UP, ctr);
-            ctr = count_bsize(i + 1, j, DOWN, ctr);
-            ctr = count_bsize(i, j - 1, LEFT, ctr);
-            ctr = count_bsize(i, j + 1, RIGHT, ctr);
-        }
-    }
-    if (dir == LEFT) // going left -> don't go right
-    {
-        // ctr = count_bsize(i + 1, j, RIGHT, ctr);
+        next.x = this.x - 1;
+        next.y = this.y;
+        ctr = count_bsize(next, this, ctr);
 
-        if (heights[i][j] > heights[i][j + 1])
-        {
-            ctr++;
-            ctr = count_bsize(i - 1, j, UP, ctr);
-            // ctr = count_bsize(i + 1, j, DOWN, ctr);
-            ctr = count_bsize(i, j - 1, LEFT, ctr);
-            // ctr = count_bsize(i, j + 1, RIGHT, ctr);
-        }
-    }
-    if (dir == RIGHT) // going right -> don't go left
-    {
-        // ctr = count_bsize(i - 1, j, LEFT, ctr);
-        if (heights[i][j] > heights[i][j - 1])
-        {
-            ctr++;
-            // ctr = count_bsize(i - 1, j, UP, ctr);
-            ctr = count_bsize(i + 1, j, DOWN, ctr);
-            // ctr = count_bsize(i, j - 1, LEFT, ctr);
-            ctr = count_bsize(i, j + 1, RIGHT, ctr);
-        }
+        next.x = this.x + 1;
+        next.y = this.y;
+        ctr = count_bsize(next, this, ctr);
+
+        next.x = this.x;
+        next.y = this.y - 1;
+        ctr = count_bsize(next, this, ctr);
+
+        next.x = this.x;
+        next.y = this.y + 1;
+        ctr = count_bsize(next, this, ctr);
+        // printf("(%d,%d) = %d\n", this.x, this.y, ctr);
     }
 
     return ctr;
@@ -142,6 +142,13 @@ int count_risk(void)
 {
     int risk = 0;
     int tmp = 0;
+    int ctr = 0;
+    coord this, next;
+    this.x = 0;
+    this.y = 0;
+    next.x = 0;
+    next.y = 0;
+
     for (size_t i = 1; i < ylen; i++)
     {
         for (size_t j = 1; j < xlen; j++)
@@ -149,7 +156,30 @@ int count_risk(void)
             tmp = check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
             if (tmp > 0)
             {
-                bsize[bind] = count_bsize(i, j, 0, 0);
+                this.x = j;
+                this.y = i;
+                ctr = 1;
+                add_visit(this);
+
+                next.x = this.x - 1;
+                next.y = this.y;
+                ctr = count_bsize(next, this, ctr);
+
+                next.x = this.x + 1;
+                next.y = this.y;
+                ctr = count_bsize(next, this, ctr);
+
+                next.x = this.x;
+                next.y = this.y - 1;
+                ctr = count_bsize(next, this, ctr);
+
+                next.x = this.x;
+                next.y = this.y + 1;
+                ctr = count_bsize(next, this, ctr);
+                bsize[bind] = ctr;
+                printf("(%d,%d) = %d - %d\n", this.x, this.y, ctr, bind);
+
+                bind++;
                 risk += tmp;
             }
         }
@@ -203,8 +233,9 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    print_arr();
+    // print_arr();
     int risk = count_risk();
+    // print_gen(bsize, &bind);
     printf("%d\n", risk);
     // fp = fopen(outp, "w");
     // fprintf(fp, "Counted 1,4,7 and 8 segments: %ld\n", cnt1);
