@@ -10,9 +10,9 @@
 
 #define NEWLN " \n"
 
+#define ALL "<{[(>}])"
 #define OPEN "<{[("
 #define CLOSE ">}])"
-#define ALL "<{[(>}])"
 
 #define RNDOP '('
 #define RNDCL ')'
@@ -23,10 +23,17 @@
 #define NGLOP '<'
 #define NGLCL '>'
 
-#define ROUND 3
-#define SQUARE 57
-#define CURLY 1197
-#define ANGLE 25137
+// Syntax error points
+#define ERND 3
+#define ESQR 57
+#define ECRL 1197
+#define ENGL 25137
+
+// Incomplete points
+#define IRND 1
+#define ISQR 2
+#define ICRL 3
+#define INGL 4
 
 typedef struct
 {
@@ -38,7 +45,10 @@ typedef struct
 } chunk_t;
 
 char lines[ARRSIZE][BUFSIZE];
+char ilines[ARRSIZE][BUFSIZE];
+unsigned long int iscores[ARRSIZE];
 int added = 0;
+int iadded = 0;
 
 void print_line(char *line, int line_nbr)
 {
@@ -67,10 +77,54 @@ bool check_closure(char *chunk)
         if (strchr(OPEN, chunk[strlen(chunk) - 2]) != NULL) // second last is open?
         {
             // if abs diff larger than 2, closure is of different type.
-            return ((chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] < -2) || (chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] > 2));
+            return ((chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] < -2) ||
+                    (chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] > 2));
         }
     }
     return false;
+}
+
+void sort_iscores(void)
+{
+    inline int score_comp(const void *a, const void *b)
+    {
+        if (*(unsigned long int *)a < *(unsigned long int *)b)
+            return -1;
+        if (*(unsigned long int *)a > *(unsigned long int *)b)
+            return 1;
+        return 0;
+    }
+    qsort(iscores, iadded, sizeof(unsigned long int), score_comp);
+}
+
+unsigned long int iscore(char *end)
+{
+    unsigned long int score = 0;
+    for (size_t i = 0; i < strlen(end); i++)
+    {
+        score *= 5;
+        if (end[i] == RNDCL || end[i] == RNDOP)
+            score += IRND;
+        else if (end[i] == SQRCL || end[i] == SQROP)
+            score += ISQR;
+        else if (end[i] == CRLCL || end[i] == CRLOP)
+            score += ICRL;
+        else if (end[i] == NGLCL || end[i] == NGLOP)
+            score += INGL;
+    }
+    return score;
+}
+
+unsigned long int complete_line(char *chunk)
+{
+    char rev[BUFSIZE] = "";
+    int clen = strlen(chunk);
+    // Reverses order but does not change symbol to the inverse
+    for (size_t i = 0; i < clen; i++)
+    {
+        rev[i] = chunk[clen - i - 1];
+    }
+    return iscore(rev);
 }
 
 int parse_syntax_error(void)
@@ -78,6 +132,7 @@ int parse_syntax_error(void)
     char *ptr;
     char line[BUFSIZE] = "";
     char chunk[BUFSIZE] = "";
+    bool incomplete = true;
     chunk_t ctr;
     ctr.rnd = 0;
     ctr.sqr = 0;
@@ -86,6 +141,7 @@ int parse_syntax_error(void)
 
     for (size_t i = 0; i < added; i++)
     {
+        incomplete = true; // assume line is incomplete until proven otherwise
         strcpy(line, lines[i]);
         ptr = strpbrk(line, ALL);
         strcpy(chunk, "");
@@ -109,14 +165,21 @@ int parse_syntax_error(void)
                         ctr.ngl++;
                     else
                         printf("unkown char: %c\n", *ptr);
-
+                    incomplete = false; // line is corrupt, i.e. not incomplete
                     break;
                 }
             }
             ptr = strpbrk(ptr + 1, ALL);
         }
+        if (incomplete)
+        {
+            // The remaining chunk after parsing for syntax error
+            // is the inverse (or reverse) of the incomplete line
+            iscores[iadded] = complete_line(chunk);
+            iadded++;
+        }
     }
-    return (ctr.rnd * ROUND + ctr.sqr * SQUARE + ctr.crl * CURLY + ctr.ngl * ANGLE);
+    return (ctr.rnd * ERND + ctr.sqr * ESQR + ctr.crl * ECRL + ctr.ngl * ENGL);
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -160,10 +223,12 @@ int main(int argc, char *argv[])
     parse_file(fp, print_line, true);
     fclose(fp);
     int syntax_error = parse_syntax_error();
-    printf("Syntax error score: %d\n", syntax_error);
-    // fp = fopen(outp, "w");
+    sort_iscores();
 
-    // fclose(fp);
+    fp = fopen(outp, "w");
+    fprintf(fp, "Syntax error score: %d\n", syntax_error);
+    fprintf(fp, "Mid incomplete score: %ld \n", iscores[iadded / 2]);
+    fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
 }
