@@ -12,12 +12,6 @@
 #define SPACE " "
 #define SCANCHR "0123456789"
 
-#define ORIG 0
-#define UP 1
-#define DOWN 2
-#define LEFT 3
-#define RIGHT 4
-
 typedef struct
 {
     int x;
@@ -49,13 +43,6 @@ void print_arr(void)
     }
 }
 
-void print_gen(int *arr, int *len)
-{
-    for (size_t i = 0; i < *len; i++)
-    {
-        printf("%d\n", arr[i]);
-    }
-}
 int check_risk(int this, int top, int bot, int left, int right)
 {
     if ((this < top) && (this < bot) && (this < left) && (this < right))
@@ -72,14 +59,21 @@ bool visited(coord this)
         for (size_t i = 0; i < coordind; i++)
         {
             if (this.x == bsites[i].x && this.y == bsites[i].y)
+            {
                 return true;
+            }
         }
     }
     return false;
 }
+
+void reset_visits(void)
+{
+    coordind = 0;
+}
+
 void add_visit(coord this)
 {
-
     bsites[coordind].x = this.x;
     bsites[coordind].y = this.y;
     coordind++;
@@ -88,7 +82,7 @@ void add_visit(coord this)
 int count_bsize(coord this, coord prev, int ctr)
 {
     coord next;
-    if (this.x == 0 || this.y == 0 || this.x > xlen || this.y > ylen)
+    if (this.x <= 0 || this.y <= 0 || this.x > xlen || this.y > ylen)
         return ctr;
     if (heights[this.y][this.x] == 9)
         return ctr;
@@ -114,7 +108,6 @@ int count_bsize(coord this, coord prev, int ctr)
         next.x = this.x;
         next.y = this.y + 1;
         ctr = count_bsize(next, this, ctr);
-        // printf("(%d,%d) = %d\n", this.x, this.y, ctr);
     }
 
     return ctr;
@@ -138,6 +131,29 @@ void fill_border(void)
     }
 }
 
+int topthree(void)
+{
+    int top[3] = {0};
+    for (size_t i = 0; i < bind; i++)
+    {
+        if (top[0] < bsize[i])
+        {
+            top[2] = top[1];
+            top[1] = top[0];
+            top[0] = bsize[i];
+        }
+        else if (top[1] < bsize[i])
+        {
+
+            top[2] = top[1];
+            top[1] = bsize[i];
+        }
+        else if (top[2] < bsize[i])
+            top[2] = bsize[i];
+    }
+    return top[0] * top[1] * top[2];
+}
+
 int count_risk(void)
 {
     int risk = 0;
@@ -156,6 +172,7 @@ int count_risk(void)
             tmp = check_risk(heights[i][j], heights[i - 1][j], heights[i + 1][j], heights[i][j - 1], heights[i][j + 1]);
             if (tmp > 0)
             {
+                reset_visits();
                 this.x = j;
                 this.y = i;
                 ctr = 1;
@@ -177,7 +194,6 @@ int count_risk(void)
                 next.y = this.y + 1;
                 ctr = count_bsize(next, this, ctr);
                 bsize[bind] = ctr;
-                printf("(%d,%d) = %d - %d\n", this.x, this.y, ctr, bind);
 
                 bind++;
                 risk += tmp;
@@ -233,14 +249,13 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    // print_arr();
     int risk = count_risk();
-    // print_gen(bsize, &bind);
-    printf("%d\n", risk);
-    // fp = fopen(outp, "w");
-    // fprintf(fp, "Counted 1,4,7 and 8 segments: %ld\n", cnt1);
-    // fprintf(fp, "Sum of decoded segments: %ld\n", cnt2);
-    // fclose(fp);
+    int size = topthree();
+
+    fp = fopen(outp, "w");
+    fprintf(fp, "Counted risk: %d\n", risk);
+    fprintf(fp, "Top 3 basins multiplied: %d\n", size);
+    fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
 }
