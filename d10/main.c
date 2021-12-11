@@ -12,15 +12,16 @@
 
 #define OPEN "<{[("
 #define CLOSE ">}])"
+#define ALL "<{[(>}])"
 
-#define RNDOP "("
-#define RNDCL ")"
-#define SQROP "["
-#define SQRCL "]"
-#define CRLOP "{"
-#define CRLCL "}"
-#define NGLOP "<"
-#define NGLCL ">"
+#define RNDOP '('
+#define RNDCL ')'
+#define SQROP '['
+#define SQRCL ']'
+#define CRLOP '{'
+#define CRLCL '}'
+#define NGLOP '<'
+#define NGLCL '>'
 
 #define ROUND 3
 #define SQUARE 57
@@ -44,38 +45,78 @@ void print_line(char *line, int line_nbr)
     printf("%d : %s\n", line_nbr, line);
 }
 
-void print_arr(unsigned long int *arr, int start, int end)
+bool check_chunk(char *chunk, char *curr)
 {
-    int line = 0;
-    printf("%4d: ", line);
+    int clen = strlen(chunk);
+    if (chunk[clen - 1] == RNDOP && *curr == RNDCL)
+        return true;
+    else if (chunk[clen - 1] == SQROP && *curr == SQRCL)
+        return true;
+    else if (chunk[clen - 1] == CRLOP && *curr == CRLCL)
+        return true;
+    else if (chunk[clen - 1] == NGLOP && *curr == NGLCL)
+        return true;
 
-    for (size_t i = start; i < end; i++)
-    {
-        printf("%4ld, ", arr[i]);
-        if ((i - start) % 10 == 9)
-        {
-            line += 10;
-            printf("\n%4d: ", line);
-        }
-    }
-    printf("\n");
+    return false;
 }
 
-void parse_syntax(void)
+bool check_closure(char *chunk)
+{
+    if (strchr(CLOSE, chunk[strlen(chunk) - 1]) != NULL) // last is a close?
+    {
+        if (strchr(OPEN, chunk[strlen(chunk) - 2]) != NULL) // second last is open?
+        {
+            // if abs diff larger than 2, closure is of different type.
+            return ((chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] < -2) || (chunk[strlen(chunk) - 2] - chunk[strlen(chunk) - 1] > 2));
+        }
+    }
+    return false;
+}
+
+int parse_syntax_error(void)
 {
     char *ptr;
     char line[BUFSIZE] = "";
+    char chunk[BUFSIZE] = "";
+    chunk_t ctr;
+    ctr.rnd = 0;
+    ctr.sqr = 0;
+    ctr.crl = 0;
+    ctr.ngl = 0;
+
     for (size_t i = 0; i < added; i++)
     {
         strcpy(line, lines[i]);
-        ptr = strtok(line, OPEN);
+        ptr = strpbrk(line, ALL);
+        strcpy(chunk, "");
         while (ptr != NULL)
         {
-            printf("%s,", ptr);
-            ptr = strtok(NULL, OPEN);
+            if (check_chunk(chunk, ptr))
+                chunk[strlen(chunk) - 1] = 0;
+            else
+            {
+                strncat(chunk, ptr, 1);
+
+                if (check_closure(chunk))
+                {
+                    if (*ptr == RNDOP || *ptr == RNDCL)
+                        ctr.rnd++;
+                    else if (*ptr == SQROP || *ptr == SQRCL)
+                        ctr.sqr++;
+                    else if (*ptr == CRLOP || *ptr == CRLCL)
+                        ctr.crl++;
+                    else if (*ptr == NGLOP || *ptr == NGLCL)
+                        ctr.ngl++;
+                    else
+                        printf("unkown char: %c\n", *ptr);
+
+                    break;
+                }
+            }
+            ptr = strpbrk(ptr + 1, ALL);
         }
-        printf("\n");
     }
+    return (ctr.rnd * ROUND + ctr.sqr * SQUARE + ctr.crl * CURLY + ctr.ngl * ANGLE);
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -83,7 +124,6 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
     char next[BUFSIZE];
     char *ptr;
     int next_ctr = 0;
-    int ptr_ctr = 0;
 
     while (fgets(next, BUFSIZE, fp) != NULL)
     {
@@ -91,23 +131,7 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
         strcpy(lines[next_ctr], ptr);
         if (!silent)
             func(ptr, next_ctr);
-        // ptr = strtok(next, NEWLN);
-        // ptr_ctr = 0;
-        // while (ptr != NULL)
-        // {
 
-        //     if (strlen(ptr) >= 1)
-        //     {
-        //         if (!silent)
-        //             func(ptr, ptr_ctr);
-        //         if (ptr_ctr > 0)
-        //             strcpy(post_segs[next_ctr], ptr);
-        //         else
-        //             strcpy(pre_segs[next_ctr], ptr);
-        //         ptr_ctr++;
-        //     }
-        //     ptr = strtok(NULL, NEWLN);
-        // }
         next_ctr++;
     }
     added = next_ctr;
@@ -133,9 +157,10 @@ int main(int argc, char *argv[])
         strcpy(outp, argv[2]);
     }
 
-    parse_file(fp, print_line, false);
+    parse_file(fp, print_line, true);
     fclose(fp);
-    parse_syntax();
+    int syntax_error = parse_syntax_error();
+    printf("Syntax error score: %d\n", syntax_error);
     // fp = fopen(outp, "w");
 
     // fclose(fp);
