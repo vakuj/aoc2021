@@ -15,10 +15,12 @@
 typedef struct
 {
     int x;
-    int y
+    int y;
 } coord_t;
 
 int energy[ARRSIZE][ARRSIZE] = {0};
+coord_t sites[ARRSIZE];
+
 int xlen = 0;
 int ylen = 0;
 
@@ -33,7 +35,7 @@ void print_arr(void)
     {
         for (size_t j = 0; j < xlen; j++)
         {
-            printf("%2d", energy[i][j]);
+            printf("%3d", energy[i][j]);
         }
         printf("\n");
     }
@@ -41,11 +43,20 @@ void print_arr(void)
 
 void update_region(coord_t origin)
 {
-    return;
+    // update only around origin
+    for (int i = origin.y - 1; i < origin.y + 2; i++)
+    {
+        for (int j = origin.x - 1; j < origin.x + 2; j++)
+        {
+            if (i >= 0 && j >= 0 && i < ylen && j < xlen)
+                energy[i][j] += 1;
+        }
+    }
 }
 
 void update_energy(void)
 {
+    // update entire map
     for (size_t i = 0; i < ylen; i++)
     {
         for (size_t j = 0; j < xlen; j++)
@@ -53,6 +64,19 @@ void update_energy(void)
             energy[i][j] += 1;
         }
     }
+}
+
+bool has_flashed(coord_t origin, int flashes)
+{
+    // ensure only one flash per cycle
+    if (flashes == 0)
+        return false;
+    for (size_t i = 0; i < flashes; i++)
+    {
+        if (sites[i].x == origin.x && sites[i].y == origin.y)
+            return true;
+    }
+    return false;
 }
 
 int check_flash(void)
@@ -63,21 +87,30 @@ int check_flash(void)
     origin.y = 0;
     bool flashed = true;
 
-    while (flashed)
+    while (flashed) // iterate until no more flashes
     {
-        flashed = false;
-        for (size_t i = 0; i < xlen; i++)
+        flashed = false; // assume no flash
+        for (size_t i = 0; i < ylen; i++)
         {
-            for (size_t j = 0; j < ylen; i++)
+            for (size_t j = 0; j < xlen; j++)
             {
                 if (energy[i][j] > 9)
                 {
-                    // RECORD FLASHED?!?
-                    update_region(origin);
-                    flashed = true;
-                    flashes++;
+                    origin.y = i;
+                    origin.x = j;
+                    if (!has_flashed(origin, flashes))
+                    {
+                        update_region(origin);
+                        sites[flashes] = origin;
+                        flashed = true;
+                        flashes++;
+                    }
                 }
             }
+        }
+        for (size_t i = 0; i < flashes; i++)
+        {
+            energy[sites[i].y][sites[i].x] = 0;
         }
     }
     return flashes;
@@ -90,9 +123,23 @@ int evolve_energy(int max_iter)
     while (ctr < max_iter)
     {
         update_energy();
-        check_flash();
+        flashes += check_flash();
         ctr++;
     }
+    return flashes;
+}
+
+int find_sync(int start_iter)
+{
+    int ctr = start_iter;
+    int flashes = 0;
+    while (flashes != xlen * ylen)
+    {
+        update_energy();
+        flashes = check_flash();
+        ctr++;
+    }
+    return ctr;
 }
 
 void fill_border(void)
@@ -159,11 +206,11 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    print_arr();
-
+    int flashes = evolve_energy(100);
+    int sync_iter = find_sync(100);
     fp = fopen(outp, "w");
-    fprintf(fp, "Part 1 solution not added yet\n");
-    fprintf(fp, "Part 2 solution not added yet\n");
+    fprintf(fp, "Number of flashes after 100 iters: %d\n", flashes);
+    fprintf(fp, "Synchronization achieved at: %d\n", sync_iter);
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
