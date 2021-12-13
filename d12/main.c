@@ -17,26 +17,28 @@
 
 typedef struct
 {
-    bool start;
-    bool end;
-    bool major_src;
-    bool major_dst;
-    char src[BUFSIZE];
-    char dst[BUFSIZE];
+    bool start;            // if self is start point
+    bool end;              // if self is end pint
+    bool major_src;        // if self is major
+    char src[16];          // self
+    char dst[ARRSIZE][16]; // array of possible destinations
+    int dsts;
 } cave_t;
 
 char caves[ARRSIZE][BUFSIZE];
 char paths[ARRSIZE][BUFSIZE];
 cave_t cpair[ARRSIZE];
 int added = 0;
+int padded = 0;
 
 void print_line(char *line, int line_nbr)
 {
     printf("%d : %s\n", line_nbr, line);
 }
 
-void find_paths(void)
+void print_caves(void)
 {
+
     for (size_t i = 0; i < added; i++)
     {
         printf("Cave path:    %ld\n", i);
@@ -44,9 +46,64 @@ void find_paths(void)
         printf("is end:       %d\n", cpair[i].end);
         printf("source:       %s\n", cpair[i].src);
         printf("src major:    %d\n", cpair[i].major_src);
-        printf("destination:  %s\n", cpair[i].dst);
-        printf("dst major:    %d\n", cpair[i].major_dst);
-        printf("----------\n");
+        printf("destination:  ");
+        for (size_t j = 0; j < cpair[i].dsts; j++)
+        {
+            printf("%s, ", cpair[i].dst[j]);
+        }
+        printf("\n----------\n");
+    }
+}
+
+void find_paths(void)
+{
+    cave_t start;
+    int ctr = 0;
+
+    for (size_t i = 0; i < added; i++)
+    {
+        if (cpair[i].start)
+        {
+            memmove((cave_t *)&start, (cave_t *)&cpair[i], sizeof(cave_t));
+            break;
+        }
+    }
+
+    while (ctr < start.dsts)
+    {
+        /** 
+         *  Should probably do some recursive iterations here
+         *  Current issue is that the compacted array is perhaps
+         *  too compact, e.g. all dst's from start is not found
+         *  on top level src.
+         */
+
+        ctr++;
+    }
+}
+
+void compact_cpair(void)
+{
+    int curr, next;
+    curr = 0;
+    next = 1;
+    while (curr < added && next < added)
+    {
+        if (strcmp(cpair[curr].src, cpair[next].src) == 0)
+        {
+            memmove(cpair[curr].dst + cpair[curr].dsts, cpair[next].dst, sizeof(char[16]) * (cpair[next].dsts));
+            cpair[curr].dsts += cpair[next].dsts;
+            memmove(cpair + next, cpair + next + 1, sizeof(cave_t) * (added - next - 1));
+            added--;
+        }
+        else
+            next++;
+
+        if (next == added)
+        {
+            curr++;
+            next = curr + 1;
+        }
     }
 }
 
@@ -59,9 +116,8 @@ void parse_caves(void)
         cpair[i].start = false;
         cpair[i].end = false;
         cpair[i].major_src = false;
-        cpair[i].major_dst = false;
+        cpair[i].dsts = 0;
         strcpy(cpair[i].src, "");
-        strcpy(cpair[i].dst, "");
 
         strcpy(cave, caves[i]);
 
@@ -70,32 +126,26 @@ void parse_caves(void)
         {
             if (strcmp(ptr, START) == 0)
             {
-
                 cpair[i].start = true;
-                cpair[i].end = false;
                 if (strlen(cpair[i].src) > 0)
                 {
-                    strcpy(cpair[i].dst, cpair[i].src);
-                    strcpy(cpair[i].src, START);
+                    strcpy(cpair[i].dst[cpair[i].dsts], cpair[i].src);
+                    cpair[i].dsts++;
                 }
+                strcpy(cpair[i].src, START);
             }
             else if (strcmp(ptr, END) == 0)
             {
-                cpair[i].start = false;
                 cpair[i].end = true;
-
-                if (strlen(cpair[i].dst) > 0)
-                {
-                    strcpy(cpair[i].src, cpair[i].dst);
-                    strcpy(cpair[i].dst, END);
-                }
+                strcpy(cpair[i].dst[cpair[i].dsts], END);
+                cpair[i].dsts++;
             }
             else
             {
                 if (cpair[i].start)
                 {
-                    cpair[i].major_dst = ((ptr[0] >= 'A') && (ptr[0] <= 'Z'));
-                    strcpy(cpair[i].dst, ptr);
+                    strcpy(cpair[i].dst[cpair[i].dsts], ptr);
+                    cpair[i].dsts++;
                 }
                 else if (cpair[i].end)
                 {
@@ -104,8 +154,8 @@ void parse_caves(void)
                 }
                 else if (strlen(cpair[i].src) > 0)
                 {
-                    cpair[i].major_dst = ((ptr[0] >= 'A') && (ptr[0] <= 'Z'));
-                    strcpy(cpair[i].dst, ptr);
+                    strcpy(cpair[i].dst[cpair[i].dsts], ptr);
+                    cpair[i].dsts++;
                 }
                 else
                 {
@@ -159,7 +209,11 @@ int main(int argc, char *argv[])
     parse_file(fp, print_line, true);
     fclose(fp);
     parse_caves();
+    // find_paths();
+    compact_cpair();
+    print_caves();
     find_paths();
+
     fp = fopen(outp, "w");
     fprintf(fp, "Part 1 not solved yet.\n");
     fprintf(fp, "Part 1 not solved yet.\n");
