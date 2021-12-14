@@ -7,6 +7,7 @@
 #include "../common/common.h"
 
 #define ARRSIZE 1024
+#define CAVES 20
 
 #define NEWLN " \n"
 #define SPACE " "
@@ -15,19 +16,17 @@
 #define END "end"
 #define START "start"
 
-typedef struct
+struct cave
 {
-    bool start;            // if self is start point
-    bool end;              // if self is end pint
-    bool major_src;        // if self is major
-    char src[16];          // self
-    char dst[ARRSIZE][16]; // array of possible destinations
+    char src[16];            // self
+    struct cave *dst[CAVES]; // array of possible destinations
     int dsts;
-} cave_t;
+};
+typedef struct cave cave_t;
 
 char caves[ARRSIZE][BUFSIZE];
 char paths[ARRSIZE][BUFSIZE];
-cave_t cpair[ARRSIZE];
+cave_t *head = NULL;
 int added = 0;
 int padded = 0;
 
@@ -38,133 +37,124 @@ void print_line(char *line, int line_nbr)
 
 void print_caves(void)
 {
-
-    for (size_t i = 0; i < added; i++)
+    printf("%s\n", head->src);
+    for (size_t i = 0; i < head->dsts; i++)
     {
-        printf("Cave path:    %ld\n", i);
-        printf("is start:     %d\n", cpair[i].start);
-        printf("is end:       %d\n", cpair[i].end);
-        printf("source:       %s\n", cpair[i].src);
-        printf("src major:    %d\n", cpair[i].major_src);
-        printf("destination:  ");
-        for (size_t j = 0; j < cpair[i].dsts; j++)
-        {
-            printf("%s, ", cpair[i].dst[j]);
-        }
-        printf("\n----------\n");
+        printf("%s, ", head->dst[i]->src);
     }
+    printf("\n");
 }
 
-void find_paths(void)
+cave_t *new_cave(char *src)
 {
-    cave_t start;
-    int ctr = 0;
-
-    for (size_t i = 0; i < added; i++)
+    cave_t *new = (cave_t *)malloc(sizeof(cave_t));
+    strcpy(new->src, src);
+    for (size_t i = 0; i < CAVES; i++)
     {
-        if (cpair[i].start)
-        {
-            memmove((cave_t *)&start, (cave_t *)&cpair[i], sizeof(cave_t));
-            break;
-        }
+        new->dst[i] = NULL;
     }
-
-    while (ctr < start.dsts)
-    {
-        /** 
-         *  Should probably do some recursive iterations here
-         *  Current issue is that the compacted array is perhaps
-         *  too compact, e.g. all dst's from start is not found
-         *  on top level src.
-         */
-
-        ctr++;
-    }
+    new->dsts = 0;
+    return new;
 }
-
-void compact_cpair(void)
+bool insert(cave_t *head, char *src, char *dst)
 {
-    int curr, next;
-    curr = 0;
-    next = 1;
-    while (curr < added && next < added)
+    if (head == NULL)
+        return false;
+
+    if (strcmp(head->src, src) == 0)
     {
-        if (strcmp(cpair[curr].src, cpair[next].src) == 0)
+        head->dst[head->dsts] = new_cave(dst);
+        head->dsts++;
+        return true;
+    }
+    for (size_t i = 0; i < head->dsts; i++)
+    {
+        if (head->dst[i] != NULL)
         {
-            memmove(cpair[curr].dst + cpair[curr].dsts, cpair[next].dst, sizeof(char[16]) * (cpair[next].dsts));
-            cpair[curr].dsts += cpair[next].dsts;
-            memmove(cpair + next, cpair + next + 1, sizeof(cave_t) * (added - next - 1));
-            added--;
+            if (insert(head->dst[i], src, dst))
+                return true;
         }
         else
-            next++;
-
-        if (next == added)
-        {
-            curr++;
-            next = curr + 1;
-        }
+            return false;
+    }
+    return false;
+}
+void print_rec(cave_t *head)
+{
+    printf("\n%s -> ", head->src);
+    for (size_t i = 0; i < head->dsts; i++)
+    {
+        if (head->dst[i] != NULL)
+            print_rec(head->dst[i]);
+        // printf("\n");
     }
 }
 
 void parse_caves(void)
 {
-    char cave[BUFSIZE];
-    char *ptr;
-    for (size_t i = 0; i < added; i++)
+    char *pre, *post;
+    char rbuf[BUFSIZE];
+    int ctr = 0;
+    int end_ctr = 0;
+    bool inserted = false;
+    while (ctr < added)
     {
-        cpair[i].start = false;
-        cpair[i].end = false;
-        cpair[i].major_src = false;
-        cpair[i].dsts = 0;
-        strcpy(cpair[i].src, "");
-
-        strcpy(cave, caves[i]);
-
-        ptr = strtok(cave, DELIM);
-        while (ptr != NULL)
+        strcpy(rbuf, caves[ctr]);
+        pre = strtok(rbuf, DELIM);
+        post = strtok(NULL, DELIM);
+        if (strcmp(pre, END) == 0 || strcmp(post, END) == 0)
+            end_ctr++;
+        if (strcmp(pre, START) == 0)
         {
-            if (strcmp(ptr, START) == 0)
-            {
-                cpair[i].start = true;
-                if (strlen(cpair[i].src) > 0)
-                {
-                    strcpy(cpair[i].dst[cpair[i].dsts], cpair[i].src);
-                    cpair[i].dsts++;
-                }
-                strcpy(cpair[i].src, START);
-            }
-            else if (strcmp(ptr, END) == 0)
-            {
-                cpair[i].end = true;
-                strcpy(cpair[i].dst[cpair[i].dsts], END);
-                cpair[i].dsts++;
-            }
-            else
-            {
-                if (cpair[i].start)
-                {
-                    strcpy(cpair[i].dst[cpair[i].dsts], ptr);
-                    cpair[i].dsts++;
-                }
-                else if (cpair[i].end)
-                {
-                    cpair[i].major_src = ((ptr[0] >= 'A') && (ptr[0] <= 'Z'));
-                    strcpy(cpair[i].src, ptr);
-                }
-                else if (strlen(cpair[i].src) > 0)
-                {
-                    strcpy(cpair[i].dst[cpair[i].dsts], ptr);
-                    cpair[i].dsts++;
-                }
-                else
-                {
-                    cpair[i].major_src = ((ptr[0] >= 'A') && (ptr[0] <= 'Z'));
-                    strcpy(cpair[i].src, ptr);
-                }
-            }
+            if (head == NULL)
+                head = new_cave(START);
+            inserted = insert(head, START, post);
+            memmove(caves + ctr, caves + ctr + 1, sizeof(char[BUFSIZE]) * (added - ctr - 1));
+            added--;
+        }
+        else if (strcmp(post, START) == 0)
+        {
+            if (head == NULL)
+                head = new_cave(START);
+            inserted = insert(head, START, pre);
+            memmove(caves + ctr, caves + ctr + 1, sizeof(char[BUFSIZE]) * (added - ctr - 1));
+            added--;
+        }
+        else
+            ctr++;
+    }
+    ctr = 0;
+    while (ctr < added)
+    {
+        strcpy(rbuf, caves[ctr]);
+        pre = strtok(rbuf, DELIM);
+        post = strtok(NULL, DELIM);
+        printf("%s - %s\n", pre, post);
 
-            ptr = strtok(NULL, DELIM);
+        if (strcmp(pre, END) == 0)
+            inserted = insert(head, post, END);
+
+        else if (strcmp(post, END) == 0)
+            inserted = insert(head, pre, END);
+        else
+        {
+            inserted = insert(head, pre, post);
+            if (!inserted)
+            {
+                inserted = insert(head, post, pre);
+            }
+        }
+        if (inserted)
+        {
+            memmove(caves + ctr, caves + ctr + 1, sizeof(char[BUFSIZE]) * (added - ctr - 1));
+            added--;
+        }
+        else
+            ctr++;
+
+        if (ctr > added)
+        {
+            ctr = 0;
         }
     }
 }
@@ -210,9 +200,10 @@ int main(int argc, char *argv[])
     fclose(fp);
     parse_caves();
     // find_paths();
-    compact_cpair();
+    // compact_cpair();
     print_caves();
-    find_paths();
+    print_rec(head);
+    // find_paths();
 
     fp = fopen(outp, "w");
     fprintf(fp, "Part 1 not solved yet.\n");
