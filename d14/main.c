@@ -7,11 +7,13 @@
 #include "../common/common.h"
 
 #define ARRSIZE 1024
-#define XLBUF 8186
+#define XLBUF 10186
 
 #define NEWLN "\n"
 #define SPACE " "
 #define DELIM " -> "
+
+#define TMPFILE "tmp/tmp_file"
 
 typedef struct
 {
@@ -52,34 +54,94 @@ char *opt_seq(char *oseq, char *p)
     return (char *)NULL;
 }
 
+int count_poly(int fnbr)
+{
+    FILE *fp;
+    char fname[BUFSIZE];
+    int counts['Z' - 'A'];
+    int nchar;
+    int min = 0, max = 0, total = 0;
+    memset(counts, 0, sizeof(counts));
+
+    sprintf(fname, "%s%d", TMPFILE, fnbr);
+    fp = fopen(fname, "r");
+    nchar = fgetc(fp);
+    while (nchar != EOF)
+    {
+        counts[nchar - 'A'] += 1;
+        nchar = fgetc(fp);
+    }
+    fclose(fp);
+    for (size_t i = 0; i < ('Z' - 'A'); i++)
+    {
+        if (min == 0 && counts[i] != 0)
+            min = counts[i];
+
+        if (counts[i] < min && counts[i] != 0)
+            min = counts[i];
+
+        if (max == 0 || counts[i] > max)
+            max = counts[i];
+        total += counts[i];
+    }
+    // printf("Total: %d\nMax: %d\nMin: %d\ndiff: %d\n", total, max, min, max - min);
+    return max - min;
+}
+
 void update_seq(int iters)
 {
-    char nseq[XLBUF];
+    FILE *fpr, *fpw;
+    char read_file[BUFSIZE], write_file[BUFSIZE];
+    fpos_t pos;
+
     char p[16] = "";
     char op[16] = "";
     char *ptr;
     int ctr = 0;
     int i = 0;
+
+    sprintf(read_file, "%s%d", TMPFILE, ctr);
+    fpr = fopen(read_file, "w+");
+    fwrite(seq, sizeof(char), strlen(seq), fpr);
+    fclose(fpr);
+
     while (ctr < iters)
     {
-        memset(nseq, 0, sizeof(char[XLBUF]));
+        sprintf(read_file, "%s%d", TMPFILE, ctr);
+        sprintf(write_file, "%s%d", TMPFILE, ctr + 1);
+        fpr = fopen(read_file, "r");
+        fpw = fopen(write_file, "w+");
+        rewind(fpr);
+        rewind(fpw);
+
         i = 0;
-        while (i < strlen(seq) - 1)
+
+        fread(p, sizeof(char), 2, fpr);
+        while (feof(fpr) == 0 && ferror(fpr) == 0)
         {
-            memmove(p, seq + i, 2);
             ptr = opt_seq(op, p);
             if (ptr != NULL)
             {
-                if (i == 0)
-                    memmove(nseq + strlen(nseq), ptr, 3);
-                else
-                    memmove(nseq + strlen(nseq), ptr + 1, 2);
+                if (i == 0) // Use all three from new sequence
+                {
+                    fwrite((void *)ptr, sizeof(char), 3, fpw);
+                }
+                else // only use the last two from sequence (first already added)
+                {
+                    fwrite((void *)(ptr + 1), sizeof(char), 2, fpw);
+                }
             }
             else
                 printf("Null pointer encountered, %s not found...\n", p);
             i += 1;
+            fseek(fpr, -1, SEEK_CUR);
+            fread(p, sizeof(char), 2, fpr);
         }
-        strcpy(seq, nseq);
+        fgetpos(fpw, &pos);
+        fclose(fpr);
+        fclose(fpw);
+
+        printf("%d: %ld\n", ctr, pos.__pos);
 
         ctr++;
     }
@@ -136,13 +198,13 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    // print_input();
-    // printf("%s\n", seq);
+
     update_seq(10);
-    printf("After: (%ld) \n%s\n", strlen(seq), seq);
+
+    int pt1 = count_poly(10);
 
     fp = fopen(outp, "w");
-    fprintf(fp, "Part 1 not solved yet.\n");
+    fprintf(fp, "Part 1:Diff between most and least: %d\n", pt1);
     fprintf(fp, "Part 2 not solved yet.\n");
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
