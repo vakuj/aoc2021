@@ -7,7 +7,7 @@
 
 #include "../common/common.h"
 
-#define ARRSIZE 1024
+#define ARRSIZE 10000
 #define CAVES 20
 
 #define NEWLN " \n"
@@ -36,7 +36,6 @@ void print_line(char *line, int line_nbr)
 
 void print_caves(void)
 {
-
     for (size_t i = 0; i < added; i++)
     {
         printf("%s -> ", caves[i].src);
@@ -120,65 +119,56 @@ void insert(char *src, char *dst)
 
 bool visited(char *orig, char *new)
 {
-    char *ptr = NULL;
+    char *ptr = strstr(orig, new);
     if (new[0] >= 'a' && new[0] <= 'z' && strcmp(new, END) != 0)
     {
-        // strcpy(ptr, orig);
-        printf("visited (%s) ? : %s \n", new, orig);
-        ptr = strtok(orig, new);
         if (ptr == NULL)
-        {
-            printf("ptr is null\n");
             return false;
-        }
+        else
+            return true;
     }
-
-    return true;
+    return false;
 }
 
 void append_caves(char *start, int n)
 {
     cave_t next;
     char orig[BUFSIZE];
-    char tmp[BUFSIZE];
+
     int ctr = 0;
     int index = 0;
 
     if (n < 0)
         return;
     memmove(&next, caves + n, sizeof(cave_t));
+    strcpy(orig, start);
+
     while (ctr < next.dsts)
     {
         // ensure small caves are only used ones
-        strcpy(orig, start);
-        if (!visited(orig, next.dst[ctr]))
+        if (!visited(orig, next.dst[ctr]) && strcmp(next.dst[ctr], END) != 0)
         {
-            if (strcmp(next.dst[ctr], END) == 0)
-            {
-                strcat(orig, END);
-                strcpy(paths[padded], orig);
-                printf("%s\n", orig);
-                padded++;
-            }
-            else
-            {
-                strcat(orig, next.dst[ctr]);
-                strcat(orig, ",");
-                index = find(next.dst[ctr]);
-                append_caves(orig, index);
-            }
+            strcat(orig, next.dst[ctr]);
+            strcat(orig, ",");
+            index = find(next.dst[ctr]);
+            append_caves(orig, index);
         }
-
+        if (strcmp(next.dst[ctr], END) == 0)
+        {
+            strcat(orig, END);
+            strcpy(paths[padded], orig);
+            padded++;
+        }
+        strcpy(orig, start);
         ctr++;
     }
 }
 
-void parse_caves(void)
+int parse_caves(void)
 {
     cave_t start;
     char cbuf[BUFSIZE];
     int index = 0;
-    int ctr = 0;
     int sctr = 0;
     index = find(START);
     if (index < 0)
@@ -200,6 +190,7 @@ void parse_caves(void)
 
         sctr++;
     }
+    return padded;
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -265,11 +256,11 @@ int main(int argc, char *argv[])
     fclose(fp);
 
     print_caves();
-    parse_caves();
-    print_paths();
+    int npaths = parse_caves();
+    // print_paths();
 
     fp = fopen(outp, "w");
-    fprintf(fp, "Part 1 not solved yet.\n");
+    fprintf(fp, "Part 1:\nNumber of paths: %d\n", npaths);
     fprintf(fp, "Part 2 not solved yet.\n");
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
