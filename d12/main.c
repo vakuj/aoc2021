@@ -7,7 +7,7 @@
 
 #include "../common/common.h"
 
-#define ARRSIZE 10000
+#define ARRSIZE 4096
 #define CAVES 20
 
 #define NEWLN " \n"
@@ -129,8 +129,61 @@ bool visited(char *orig, char *new)
     }
     return false;
 }
+bool maxvisits(char *orig, char *new)
+{
+    char tmp[BUFSIZE] = "";
+    char small[BUFSIZE] = "";
+    char *ptr = strstr(orig, new);
+    char *dptr;
+    bool max = false;
 
-void append_caves(char *start, int n)
+    strcpy(tmp, orig);
+
+    dptr = strtok(tmp, ",");
+    while (dptr != NULL)
+    {
+        if (dptr[0] >= 'a' && dptr[0] <= 'z' && strcmp(dptr, END) != 0)
+        {
+            if (strlen(small) == 0)
+            {
+                strcat(small, dptr);
+                strcat(small, ",");
+            }
+            else
+            {
+                if (strstr(small, dptr) != NULL)
+                {
+                    max = true;
+                    if (strcmp(dptr, new) == 0)
+                        return true;
+                    break;
+                }
+
+                strcat(small, dptr);
+                strcat(small, ",");
+            }
+        }
+        dptr = strtok(NULL, ",");
+    }
+    if (new[0] >= 'a' && new[0] <= 'z' && strcmp(new, END) != 0)
+    {
+        if (ptr == NULL)
+            return false;
+        else
+        {
+            if (max)
+                return true;
+            ptr = strstr(ptr + strlen(new), new);
+            if (ptr == NULL)
+                return false;
+            return true;
+        }
+        return true;
+    }
+    return false;
+}
+
+void append_caves(char *start, int n, bool (*rule)(char *, char *))
 {
     cave_t next;
     char orig[BUFSIZE];
@@ -145,18 +198,19 @@ void append_caves(char *start, int n)
 
     while (ctr < next.dsts)
     {
-        // ensure small caves are only used ones
-        if (!visited(orig, next.dst[ctr]) && strcmp(next.dst[ctr], END) != 0)
+        // ensure small caves follows rules of visit.
+        if (!rule(orig, next.dst[ctr]) && strcmp(next.dst[ctr], END) != 0)
         {
             strcat(orig, next.dst[ctr]);
             strcat(orig, ",");
             index = find(next.dst[ctr]);
-            append_caves(orig, index);
+            append_caves(orig, index, rule);
         }
         if (strcmp(next.dst[ctr], END) == 0)
         {
             strcat(orig, END);
-            strcpy(paths[padded], orig);
+            if (padded < ARRSIZE)
+                strcpy(paths[padded], orig);
             padded++;
         }
         strcpy(orig, start);
@@ -164,7 +218,7 @@ void append_caves(char *start, int n)
     }
 }
 
-int parse_caves(void)
+int parse_caves(bool (*rule)(char *, char *))
 {
     cave_t start;
     char cbuf[BUFSIZE];
@@ -185,8 +239,7 @@ int parse_caves(void)
         strcat(cbuf, start.dst[sctr]);
         strcat(cbuf, ",");
         index = find(start.dst[sctr]);
-        append_caves(cbuf, index);
-        // printf("%s\n", cbuf);
+        append_caves(cbuf, index, rule);
 
         sctr++;
     }
@@ -256,12 +309,14 @@ int main(int argc, char *argv[])
     fclose(fp);
 
     print_caves();
-    int npaths = parse_caves();
-    // print_paths();
+    int npaths = parse_caves(visited);
+    memset(paths, 0, sizeof(paths));
+    padded = 0;
+    int mpaths = parse_caves(maxvisits);
 
     fp = fopen(outp, "w");
     fprintf(fp, "Part 1:\nNumber of paths: %d\n", npaths);
-    fprintf(fp, "Part 2 not solved yet.\n");
+    fprintf(fp, "Part 2:\nNumber of paths: %d\n", mpaths);
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
