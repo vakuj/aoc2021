@@ -27,36 +27,76 @@ char folds[BUFSIZE][BUFSIZE];
 int ymax, xmax;
 int coords;
 int added = 0;
+int grid[ARRSIZE][ARRSIZE] = {0};
 
 void print_line(char *line, int line_nbr)
 {
     printf("%d : %s\n", line_nbr, line);
 }
 
+void print_grid()
+{
+    printf("-------\n");
+    for (size_t i = 0; i <= ymax; i++)
+    {
+        for (size_t j = 0; j <= xmax; j++)
+        {
+            if (grid[i][j] > 0)
+                printf("#");
+            else
+                printf(".");
+        }
+        printf("\n");
+    }
+    printf("-------\n");
+}
+void insert_grid(void)
+{
+    memset(grid, 0, sizeof(grid));
+    for (size_t i = 0; i < coords; i++)
+    {
+        grid[dots[i].y][dots[i].x] += 1;
+    }
+}
+
+void grid_dots(void)
+{
+    memset(dots, 0, sizeof(dots));
+    coords = 0;
+    xmax = 0;
+    ymax = 0;
+    for (size_t i = 0; i < ARRSIZE; i++)
+    {
+        for (size_t j = 0; j < ARRSIZE; j++)
+        {
+            if (grid[i][j] > 0)
+            {
+                dots[coords].y = i;
+                dots[coords].x = j;
+                coords++;
+                if (i > ymax)
+                    ymax = (int)(i + 5);
+                if (j > xmax)
+                    xmax = (int)(j + 5);
+            }
+        }
+    }
+}
+
 void make_fold(bool ydir, int loc)
 {
-
-    for (int i = 0; i < coords; i++)
-    {
-        printf("p%ld: %d,%d\n", i, dots[i].x, dots[i].y);
-    }
     for (int i = 0; i < coords; i++)
     {
         if (ydir)
         {
-            if (dots[i].y >= loc)
-                dots[i].y = 2 * loc - (dots[i].y);
+            if (dots[i].y > loc)
+                dots[i].y = 2 * (loc) - (dots[i].y);
         }
         else
-
         {
-            if (dots[i].x >= loc)
-                dots[i].x = 2 * loc - (dots[i].x + 1);
+            if (dots[i].x > loc)
+                dots[i].x = 2 * (loc) - (dots[i].x);
         }
-    }
-    for (int i = 0; i < coords; i++)
-    {
-        printf("f%ld: %d,%d\n", i, dots[i].x, dots[i].y);
     }
 }
 void fold_dots(int nbr)
@@ -65,11 +105,12 @@ void fold_dots(int nbr)
     char *ptr;
     int loc = 0;
     bool ydir = false;
+
     for (size_t i = 0; i < nbr; i++)
     {
+
         strcpy(fold, folds[i]);
         ptr = strchr(fold, FOLD);
-        printf("fold -> %s\n", ptr - 1);
         if (ptr != NULL)
         {
             if ((ptr - 1)[0] == 'y')
@@ -83,6 +124,9 @@ void fold_dots(int nbr)
         }
         else
             printf("NULL pointer in fold_dots\n");
+
+        insert_grid();
+        grid_dots();
     }
 }
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -90,7 +134,6 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
     char next[BUFSIZE];
     char *ptr;
     int next_ctr = 0;
-    int ptr_ctr = 0;
     bool fold_section = false;
     ymax = 0;
     xmax = 0;
@@ -114,14 +157,14 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
                 if (tmp > xmax)
                     xmax = tmp;
                 xdots[tmp] = 1;
-                ptr = strtok(NULL, DELIM);
-                tmp = atoi(ptr);
                 dots[coords].x = tmp;
+                ptr = strtok(NULL, DELIM);
+
+                tmp = atoi(ptr);
                 if (tmp > ymax)
                     ymax = tmp;
                 ydots[tmp] = 1;
                 dots[coords].y = tmp;
-                // ptr_ctr = 0;
                 coords++;
             }
             else
@@ -130,7 +173,7 @@ void parse_file(FILE *fp, void func(char *, int), bool silent)
                 next_ctr++;
             }
         }
-        else // strlen == 0 seperates fold instructions
+        else
             fold_section = true;
     }
     added = next_ctr;
@@ -156,13 +199,29 @@ int main(int argc, char *argv[])
         strcpy(outp, argv[2]);
     }
 
-    parse_file(fp, print_line, false);
+    parse_file(fp, print_line, true);
     fclose(fp);
+    fold_dots(1);
+    int first = coords;
+
     fold_dots(added);
 
     fp = fopen(outp, "w");
-    fprintf(fp, "Part 1 not solved yet.\n");
-    fprintf(fp, "Part 1 not solved yet.\n");
+    fprintf(fp, "Visible after first fold: %d\n", first);
+    fprintf(fp, "Activation code:\n");
+    for (size_t i = 0; i <= ymax; i++)
+    {
+        for (size_t j = 0; j <= xmax; j++)
+        {
+            if (grid[i][j] > 0)
+                fprintf(fp, "#");
+            else
+                fprintf(fp, ".");
+        }
+        fprintf(fp, "\n");
+    }
+    fprintf(fp, "\n");
+    // fprintf(fp, "Part 1 not solved yet.\n");
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;
