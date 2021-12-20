@@ -8,6 +8,7 @@
 
 #define ARRSIZE 1024
 #define XLBUF 10186
+#define LUTSIZE 625
 
 #define NEWLN "\n"
 #define SPACE " "
@@ -22,7 +23,9 @@ typedef struct
 } poly_t;
 
 poly_t poly[ARRSIZE];
-char seq[XLBUF];
+char seq[ARRSIZE];
+
+char poly_lut[LUTSIZE];
 int added = 0;
 
 void print_line(char *line, int line_nbr)
@@ -36,6 +39,16 @@ void print_input(void)
     for (size_t i = 0; i < added; i++)
     {
         printf("%3s: %2s\n", poly[i].pair, poly[i].opt);
+    }
+}
+
+void init_lut(void)
+{
+    memset(poly_lut, 0, sizeof(poly_lut));
+
+    for (size_t i = 0; i < added; i++)
+    {
+        memmove(poly_lut + poly[i].pair[0] * 24 + poly[i].pair[1], poly[i].opt, 1);
     }
 }
 
@@ -76,6 +89,14 @@ size_t count_poly(int fnbr)
     return max - min;
 }
 
+char *opt_lut(char *oseq, char *p)
+{
+    memmove(oseq, p, 1);
+    memmove(oseq + 1, poly_lut + (int)p[0] * 24 + (int)p[1], 1);
+    memmove(oseq + 2, p + 1, 1);
+    return oseq;
+}
+
 char *opt_seq(char *oseq, char *p)
 {
     for (size_t i = 0; i < added; i++)
@@ -97,8 +118,12 @@ void update_seq(int start, int stop)
     char read_file[BUFSIZE], write_file[BUFSIZE];
     fpos_t pos;
 
-    int rwbuf = 8196;
-    char rbuf[rwbuf], wbuf[rwbuf];
+    int rwbuf = 2000000;
+    // char rbuf[rwbuf], wbuf[rwbuf];
+    char *rbuf = (char *)calloc(rwbuf, sizeof(char));
+    char *wbuf = (char *)calloc(rwbuf, sizeof(char));
+
+    init_lut();
 
     char p[16] = "";
     char op[16] = "";
@@ -124,7 +149,7 @@ void update_seq(int start, int stop)
     memset(wbuf, 0, sizeof(char[rwbuf]));
     memset(rbuf, 0, sizeof(char[rwbuf]));
 
-    while (start < stop)
+    while (ctr < stop)
     {
         /** Init r/w files */
         sprintf(read_file, "%s%d", TMPFILE, ctr);
@@ -144,7 +169,8 @@ void update_seq(int start, int stop)
             while (i < strlen(rbuf) - 1)
             {
                 memmove(p, rbuf + i, 2);
-                ptr = opt_seq(op, p);
+                // ptr = opt_seq(op, p);
+                ptr = opt_lut(op, p);
 
                 if (ptr != NULL)
                 {
@@ -194,14 +220,21 @@ void update_seq(int start, int stop)
 
         ctr++;
     }
+    free(wbuf);
+    free(rbuf);
 }
 
 void update_seq2(int iters)
 {
-    char buf[8196] = "";
-    char nseq[8196] = "";
-    char pseq[8196] = "";
+    // char buf[8196] = "";
+    // char nseq[8196] = "";
+    // char pseq[8196] = "";
+    size_t bufsize = 200000000;
+    char *buf = (char *)calloc(bufsize, sizeof(char)),
+         *nseq = (char *)calloc(bufsize, sizeof(char)),
+         *pseq = (char *)calloc(bufsize, sizeof(char));
 
+    init_lut();
     char p[16] = "";
     char op[16] = "";
     char *ptr;
@@ -215,15 +248,16 @@ void update_seq2(int iters)
         ctr = 0;
 
         memmove(buf, seq + i, 2);
-        printf("buf: %s -> %s\n", buf, nseq);
+        // printf("buf: %s -> %s\n", buf, nseq);
         while (ctr < iters)
         {
             j = 0;
-            printf("%s\n", buf);
+            // printf("%s\n", buf);
             while (j < strlen(buf) - 1)
             {
                 memmove(p, buf + j, 2);
-                ptr = opt_seq(op, p);
+                // ptr = opt_seq(op, p);
+                ptr = opt_lut(op, p);
                 if (ptr != NULL)
                 {
                     if (i == 0 && j == 0)
@@ -234,17 +268,20 @@ void update_seq2(int iters)
                 j++;
             }
             memmove(buf, pseq, strlen(pseq));
-            memset(pseq, 0, sizeof(pseq));
+            memset(pseq, 0, sizeof(char) * bufsize);
             printf("%d: %ld\n", ctr, strlen(buf));
             ctr++;
         }
 
         memmove(nseq + strlen(nseq), buf, strlen(buf));
-        memset(buf, 0, sizeof(buf));
+        memset(buf, 0, sizeof(char) * bufsize);
         break;
         i++;
     }
-    printf("buf: %s -> %s\n", seq, nseq);
+    free(buf);
+    free(nseq);
+    free(pseq);
+    // printf("buf: %s -> %s\n", seq, nseq);
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -298,20 +335,25 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    update_seq2(12);
-    // update_seq(0, 40);
-    // printf("%c=%d\n%s=%d\n", 'A', 'A', "AA", (int)'AA');
-    // for (size_t i = 0; i < added; i++)
-    // {
-    //     printf("%ld: %s=%d\n", i, poly[i].pair, (char)poly[i].pair - 'Z' * 'Z');
-    // }
+    // update_seq2(25);
+
+    update_seq(0, 15);
 
     // size_t pt1 = count_poly(10);
-    // for (size_t i = 0; i < 28; i++)
+    // for (size_t i = 0; i < 20; i++)
     // {
     //     count_poly(i);
     // }
+    size_t tmp = 2;
+    for (size_t i = 0; i < 40; i++)
+    {
+        // tmp = 2 * tmp - 1;
+        tmp *= 2;
+        tmp--;
+        printf("%3ld: %ld\n", i, tmp);
+    }
 
+    // size_t pt1 = count_poly(10);
     // size_t pt2 = count_poly(40);
 
     // fp = fopen(outp, "w");
