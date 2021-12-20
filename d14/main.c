@@ -24,7 +24,7 @@ typedef struct
 
 poly_t poly[ARRSIZE];
 char seq[ARRSIZE];
-
+size_t counted[25];
 char poly_lut[LUTSIZE];
 int added = 0;
 
@@ -48,8 +48,99 @@ void init_lut(void)
 
     for (size_t i = 0; i < added; i++)
     {
-        memmove(poly_lut + poly[i].pair[0] * 24 + poly[i].pair[1], poly[i].opt, 1);
+        memmove(poly_lut + (poly[i].pair[0] - 65) * 24 + (poly[i].pair[1] - 65), poly[i].opt, 1);
     }
+}
+
+char *opt_lut(char *oseq, char *p)
+{
+    memmove(oseq, p, 1);
+    memmove(oseq + 1, poly_lut + ((int)p[0] - 65) * 24 + ((int)p[1] - 65), 1);
+    memmove(oseq + 2, p + 1, 1);
+    return oseq;
+}
+
+void rec_count(char *p, int ctr, int end)
+{
+    if (ctr == end)
+    {
+        return;
+    }
+    ctr++;
+
+    char *oseq = (char *)calloc(0, sizeof(char) * 3);
+    char *pre = (char *)calloc(0, sizeof(char) * 2);
+    char *post = (char *)calloc(0, sizeof(char) * 2);
+
+    opt_lut(oseq, p);
+
+    counted[(int)oseq[1] - 65] += 1;
+
+    memmove(pre, oseq, 2);
+    memmove(post, oseq + 1, 2);
+    free(oseq);
+
+    rec_count(pre, ctr, end);
+    free(pre);
+
+    rec_count(post, ctr, end);
+    free(post);
+}
+
+void count_seq(int end)
+{
+    char *ptr = (char *)calloc(0, sizeof(char) * 2);
+    memset(counted, 0, sizeof(counted));
+    init_lut();
+    int i = 0;
+    while (i < strlen(seq) - 1)
+    {
+        memmove(ptr, seq + i, 2);
+        rec_count(ptr, 0, end);
+        counted[(int)ptr[1] - 65] += 1;
+        i++;
+    }
+    counted[(int)seq[0] - 65] += 1;
+    free(ptr);
+}
+
+size_t get_result(void)
+{
+    size_t min = 0,
+           max = 0,
+           total = 0;
+    for (size_t i = 0; i < 25; i++)
+    {
+        if (min == 0 && counted[i] != 0)
+            min = counted[i];
+
+        if (counted[i] < min && counted[i] != 0)
+            min = counted[i];
+
+        if (max == 0 || counted[i] > max)
+            max = counted[i];
+        total += counted[i];
+    }
+    printf("--- Stats ---\n");
+    printf("Tot cnt: %ld\nMax cnt: %ld\nMin cnt: %ld\nMax-Min: %ld\n", total, max, min, max - min);
+    printf("=============\n");
+
+    return max - min;
+}
+
+char *opt_seq(char *oseq, char *p)
+{
+    for (size_t i = 0; i < added; i++)
+    {
+        if (strcmp(poly[i].pair, p) == 0)
+        {
+            memmove(oseq, poly[i].pair, 1);
+            memmove(oseq + 1, poly[i].opt, 1);
+            memmove(oseq + 2, poly[i].pair + 1, 1);
+            return oseq;
+        }
+    }
+    return (char *)NULL;
 }
 
 size_t count_poly(int fnbr)
@@ -87,29 +178,6 @@ size_t count_poly(int fnbr)
     printf("=======\n");
 
     return max - min;
-}
-
-char *opt_lut(char *oseq, char *p)
-{
-    memmove(oseq, p, 1);
-    memmove(oseq + 1, poly_lut + (int)p[0] * 24 + (int)p[1], 1);
-    memmove(oseq + 2, p + 1, 1);
-    return oseq;
-}
-
-char *opt_seq(char *oseq, char *p)
-{
-    for (size_t i = 0; i < added; i++)
-    {
-        if (strcmp(poly[i].pair, p) == 0)
-        {
-            memmove(oseq, poly[i].pair, 1);
-            memmove(oseq + 1, poly[i].opt, 1);
-            memmove(oseq + 2, poly[i].pair + 1, 1);
-            return oseq;
-        }
-    }
-    return (char *)NULL;
 }
 
 void update_seq(int start, int stop)
@@ -335,26 +403,16 @@ int main(int argc, char *argv[])
 
     parse_file(fp, print_line, true);
     fclose(fp);
-    // update_seq2(25);
 
-    update_seq(0, 15);
+    count_seq(10);
+    size_t pt1 = get_result();
+    count_seq(40);
+    size_t pt2 = get_result();
 
-    // size_t pt1 = count_poly(10);
-    // for (size_t i = 0; i < 20; i++)
-    // {
-    //     count_poly(i);
-    // }
-    size_t tmp = 2;
-    for (size_t i = 0; i < 40; i++)
+    for (size_t i = 0; i < 26; i++)
     {
-        // tmp = 2 * tmp - 1;
-        tmp *= 2;
-        tmp--;
-        printf("%3ld: %ld\n", i, tmp);
+        printf("%c: %ld\n", (char)(i + 65), counted[i]);
     }
-
-    // size_t pt1 = count_poly(10);
-    // size_t pt2 = count_poly(40);
 
     // fp = fopen(outp, "w");
     // fprintf(fp, "Part 1:Diff between most and least: %ld\n", pt1);
