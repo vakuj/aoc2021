@@ -12,11 +12,14 @@
 #define SPACE " "
 #define DELIM "1234567890"
 
-typedef struct
+struct coord
 {
     int x;
     int y;
-} coord_t;
+    int val;
+    struct coord *next;
+};
+typedef struct coord coord_t;
 
 char risk[ARRSIZE][ARRSIZE] = {0};
 bool been[ARRSIZE][ARRSIZE] = {0};
@@ -40,73 +43,229 @@ void print_arr(int len)
     }
 }
 
-void get_nexts(coord_t *nexts, coord_t origin, int offset)
+void print_list(coord_t *head)
 {
-    nexts[0].x = origin.x - offset;
-    nexts[0].y = origin.y;
-    nexts[1].x = origin.x + offset;
-    nexts[1].y = origin.y;
-    nexts[2].x = origin.x;
-    nexts[2].y = origin.y - offset;
-    nexts[3].x = origin.x;
-    nexts[3].y = origin.y + offset;
-}
-
-bool inbounds(coord_t this)
-{
-    return (this.x >= 0 && this.y >= 0 && this.x < added && this.y < added);
-}
-
-bool is_end(coord_t this)
-{
-    return (this.x == added - 1 && this.y == added - 1);
-}
-
-bool has_been(coord_t next)
-{
-    return been[next.y][next.x];
-}
-
-void set_been(coord_t this)
-{
-    been[this.y][this.x] = true;
-}
-
-int travese(coord_t this, coord_t prev, int tot_ctr)
-{
-    // if (!inbounds(this))
-    //     return tot_ctr;
-    // if (has_been(this))
-    //     return tot_ctr;
-    if (is_end(this))
-        return tot_ctr;
-
-    coord_t nexts[4];
-    bool prev_been[ARRSIZE][ARRSIZE] = {0};
-    int min_ctr = added * added * 10;
-    int tmp_ctr = 0;
-    set_been(this);
-    get_nexts(nexts, this, 1);
-    // memset(prev_been, 0, sizeof(prev_been));
-    // min_ind = find_min(nexts, prev);
-
-    for (size_t i = 0; i < 4; i++)
+    coord_t *next;
+    int tot_ctr = 0;
+    if (head == NULL)
+        printf("NULL\n");
+    next = head;
+    while (next != NULL)
     {
-        if (inbounds(nexts[i]) && !has_been(nexts[i]))
+        tot_ctr += next->val;
+        printf("(%d,%d) = %d (%d) \n", next->x, next->y, next->val, tot_ctr);
+        next = next->next;
+    }
+    printf("--- END => %d\n", tot_ctr);
+}
+bool inbounds(int x, int y)
+{
+    return (x >= 0 && y >= 0 && x < added && y < added);
+}
+
+bool is_end(int x, int y)
+{
+    return (x == added - 1 && y == added - 1);
+}
+
+bool check_coord(coord_t *this, int x, int y)
+{
+    return (this->x == x && this->y == y);
+}
+
+coord_t *new_coord(int x, int y, int val)
+{
+    coord_t *new = (coord_t *)malloc(sizeof(coord_t));
+    new->x = x;
+    new->y = y;
+    new->val = val;
+    new->next = NULL;
+    return new;
+}
+
+coord_t *del_coord(coord_t *head, int x, int y)
+{
+    coord_t *prev = head;
+    coord_t *this = prev->next;
+    coord_t *next = this->next;
+    coord_t *found;
+
+    if (head == NULL)
+        return NULL;
+    if (check_coord(prev, x, y))
+    {
+        free(head);
+        return this;
+    }
+    while (this != NULL)
+    {
+        if (check_coord(this, x, y))
         {
-            memmove(prev_been, been, sizeof(bool[ARRSIZE][ARRSIZE]));
-            printf("(%d,%d) -> (%d,%d)\n", this.x, this.y, nexts[i].x, nexts[i].y);
-            tmp_ctr = travese(nexts[i], this, tot_ctr + risk[nexts[i].y][nexts[i].x]);
-            if (tmp_ctr > 0)
-            {
-                if (tmp_ctr < min_ctr)
-                    min_ctr = tot_ctr;
-                // if (is_end(nexts[i]))
-            }
-            memmove(been, prev_been, sizeof(been));
-            set_been(nexts[i]);
+            found = this;
+            prev->next = this->next;
+            this = next->next;
+            next = this->next;
+            free(found);
+        }
+        else
+        {
+            prev = this;
+            this = this->next;
+            next = next->next;
         }
     }
+    return head;
+}
+
+coord_t *find_coord(coord_t *head, int x, int y)
+{
+    coord_t *next;
+    if (head == NULL)
+        return NULL;
+    next = head->next;
+    while (next != NULL)
+    {
+        if (check_coord(next, x, y))
+            return next;
+        next = next->next;
+    }
+    return NULL;
+}
+
+coord_t *prepend(coord_t *head, int x, int y, int val)
+{
+    coord_t *new_head = new_coord(x, y, val);
+    // if (is_end(x, y))
+    // print_list(head);
+    if (head != NULL)
+        new_head->next = head;
+    return new_head;
+}
+
+coord_t *append(coord_t *head, int x, int y, int val)
+{
+    coord_t *this = head;
+    coord_t *next = head->next;
+    coord_t *tail = new_coord(x, y, val);
+    if (this == NULL)
+        return tail;
+    while (next != NULL)
+    {
+        this = next;
+        next = next->next;
+    }
+    this->next = tail;
+    return head;
+}
+
+coord_t *pop(coord_t *head)
+{
+    coord_t *next = head->next;
+    free(head);
+    return next;
+}
+
+int tot_count(coord_t *head)
+{
+    coord_t *next;
+    int ctr = 0;
+    if (head == NULL)
+        return 0;
+    next = head->next;
+    ctr += head->val;
+    while (next != NULL)
+    {
+        if (next->x != 0 && next->y != 0)
+            ctr += next->val;
+        next = next->next;
+    }
+    return ctr;
+}
+
+coord_t *travese(coord_t *head, int x, int y)
+{
+    coord_t *up, *down, *left, *right;
+    int min_ctr = added * added * 10;
+    int tmp_ctr = 0;
+
+    if (!inbounds(x, y))
+    {
+        return head;
+    }
+    if (is_end(x, y))
+    {
+        head = prepend(head, x, y, risk[y][x]);
+        return head;
+    }
+    if (find_coord(head, x, y) != NULL)
+    {
+        return head;
+    }
+    head = prepend(head, x, y, risk[y][x]);
+    up = head;
+    down = head;
+    left = head;
+    right = head;
+
+    /** should look for smallest value
+     *  shortest way is diagonal -> optimal path
+     *  risk level changes optimal path   
+     */
+    right = travese(right, x + 1, y);
+    up = travese(up, x, y + 1);
+    // left = travese(left, x - 1, y);
+    // down = travese(down, x, y - 1);
+
+    tmp_ctr = tot_count(right);
+    if (is_end(right->x, right->y) && tmp_ctr < min_ctr)
+    {
+        head = right;
+        free(right);
+        min_ctr = tmp_ctr;
+    }
+    tmp_ctr = tot_count(up);
+    if (is_end(up->x, up->y) && tmp_ctr < min_ctr)
+    {
+        head = up;
+        free(up);
+        min_ctr = tmp_ctr;
+    }
+    // tmp_ctr = tot_count(left);
+    // if (is_end(left->x, left->y) && tmp_ctr < min_ctr)
+    // {
+    //     head = left;
+    //     free(left);
+    //     min_ctr = tmp_ctr;
+    // }
+    // tmp_ctr = tot_count(down);
+    // if (is_end(down->x, down->y) && tmp_ctr < min_ctr)
+    // {
+    //     head = down;
+    //     free(down);
+    //     min_ctr = tmp_ctr;
+    // }
+    return head;
+}
+
+int find_opt(void)
+{
+    coord_t *head = new_coord(0, 0, risk[0][0]);
+    coord_t *right = travese(head, 1, 0);
+    coord_t *up = travese(head, 0, 1);
+    int min_ctr = added * added * 10;
+    int tmp_ctr = tot_count(right);
+    if (is_end(right->x, right->y) && tmp_ctr < min_ctr)
+    {
+        head = right;
+        min_ctr = tmp_ctr;
+    }
+    if (is_end(up->x, up->y) && tmp_ctr < min_ctr)
+    {
+        head = up;
+        min_ctr = tmp_ctr;
+    }
+    print_list(up);
+    print_list(right);
     return min_ctr;
 }
 
@@ -158,7 +317,7 @@ int main(int argc, char *argv[])
     fclose(fp);
 
     print_arr(added);
-    int tot = travese((coord_t){0, 0}, (coord_t){-1, -1}, 0);
+    int tot = find_opt();
     printf("%d\n", tot);
     fp = fopen(outp, "w");
     fprintf(fp, "Part 1 not solved yet.");
