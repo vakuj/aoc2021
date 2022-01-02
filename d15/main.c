@@ -17,12 +17,15 @@ struct coord
     int x;
     int y;
     int val;
+    int tot_ctr;
     struct coord *next;
 };
 typedef struct coord coord_t;
 
 char risk[ARRSIZE][ARRSIZE] = {0};
 bool been[ARRSIZE][ARRSIZE] = {0};
+
+int current_best = 0;
 
 int added = 0;
 
@@ -52,8 +55,12 @@ void print_list(coord_t *head)
     next = head;
     while (next != NULL)
     {
-        tot_ctr += next->val;
-        printf("(%d,%d) = %d (%d) \n", next->x, next->y, next->val, tot_ctr);
+        if (next->tot_ctr < added * added * 10)
+        {
+            tot_ctr += next->val;
+
+            printf("(%d,%d) = %d, %d (%d) \n", next->x, next->y, next->val, next->tot_ctr, tot_ctr);
+        }
         next = next->next;
     }
     printf("--- END => %d\n", tot_ctr);
@@ -73,12 +80,13 @@ bool check_coord(coord_t *this, int x, int y)
     return (this->x == x && this->y == y);
 }
 
-coord_t *new_coord(int x, int y, int val)
+coord_t *new_coord(int x, int y, int val, int tot_ctr)
 {
     coord_t *new = (coord_t *)malloc(sizeof(coord_t));
     new->x = x;
     new->y = y;
     new->val = val;
+    new->tot_ctr = tot_ctr;
     new->next = NULL;
     return new;
 }
@@ -86,12 +94,13 @@ coord_t *new_coord(int x, int y, int val)
 coord_t *del_coord(coord_t *head, int x, int y)
 {
     coord_t *prev = head;
-    coord_t *this = prev->next;
-    coord_t *next = this->next;
+    coord_t *this;
     coord_t *found;
 
     if (head == NULL)
         return NULL;
+    this = prev->next;
+
     if (check_coord(prev, x, y))
     {
         free(head);
@@ -103,15 +112,13 @@ coord_t *del_coord(coord_t *head, int x, int y)
         {
             found = this;
             prev->next = this->next;
-            this = next->next;
-            next = this->next;
             free(found);
+            break;
         }
         else
         {
             prev = this;
             this = this->next;
-            next = next->next;
         }
     }
     return head;
@@ -132,23 +139,41 @@ coord_t *find_coord(coord_t *head, int x, int y)
     return NULL;
 }
 
-coord_t *prepend(coord_t *head, int x, int y, int val)
+int length(coord_t *head)
 {
-    coord_t *new_head = new_coord(x, y, val);
+    int ctr = 0;
+    coord_t *next;
+
+    if (head == NULL)
+        return 0;
+    next = head;
+    while (next != NULL)
+    {
+        ctr++;
+        next = next->next;
+    }
+    return ctr;
+}
+
+coord_t *prepend(coord_t *head, int x, int y, int val, int tot_ctr)
+{
+    coord_t *new_head = new_coord(x, y, val, tot_ctr);
     // if (is_end(x, y))
     // print_list(head);
+    // printf("%d\n", head->val);
     if (head != NULL)
         new_head->next = head;
     return new_head;
 }
 
-coord_t *append(coord_t *head, int x, int y, int val)
+coord_t *append(coord_t *head, int x, int y, int val, int tot_ctr)
 {
     coord_t *this = head;
-    coord_t *next = head->next;
-    coord_t *tail = new_coord(x, y, val);
+    coord_t *next;
+    coord_t *tail = new_coord(x, y, val, tot_ctr);
     if (this == NULL)
         return tail;
+    next = head->next;
     while (next != NULL)
     {
         this = next;
@@ -182,91 +207,153 @@ int tot_count(coord_t *head)
     return ctr;
 }
 
-coord_t *travese(coord_t *head, int x, int y)
+int min_dir(coord_t *head, coord_t *nogo, int x, int y)
 {
-    coord_t *up, *down, *left, *right;
-    int min_ctr = added * added * 10;
-    int tmp_ctr = 0;
-
-    if (!inbounds(x, y))
+    int xi = 0;
+    int yi = 0;
+    int min_risk = 10;
+    int ret = -1;
+    int weight = 0;
+    for (int i = 0; i < 4; i++)
     {
-        return head;
+        switch (i)
+        {
+        case 0:
+            xi = x + 1;
+            yi = y;
+            weight = 0;
+            break;
+        case 1:
+            xi = x;
+            yi = y + 1;
+            weight = 0;
+            break;
+        case 2:
+            xi = x - 1;
+            yi = y;
+            weight = 6;
+            break;
+        case 3:
+            xi = x;
+            yi = y - 1;
+            weight = 6;
+            break;
+        default:
+            xi = x;
+            yi = y;
+            break;
+        }
+        if (is_end(xi, yi))
+            return i;
+        if (inbounds(xi, yi))
+        {
+            if (find_coord(head, xi, yi) == NULL && find_coord(nogo, xi, yi) == NULL)
+            {
+                if (risk[yi][xi] + weight < min_risk)
+                {
+                    min_risk = risk[yi][xi] + weight;
+                    ret = i;
+                }
+            }
+        }
     }
-    if (is_end(x, y))
-    {
-        head = prepend(head, x, y, risk[y][x]);
-        return head;
-    }
-    if (find_coord(head, x, y) != NULL)
-    {
-        return head;
-    }
-    head = prepend(head, x, y, risk[y][x]);
-    up = head;
-    down = head;
-    left = head;
-    right = head;
-
-    /** should look for smallest value
-     *  shortest way is diagonal -> optimal path
-     *  risk level changes optimal path   
-     */
-    right = travese(right, x + 1, y);
-    up = travese(up, x, y + 1);
-    // left = travese(left, x - 1, y);
-    // down = travese(down, x, y - 1);
-
-    tmp_ctr = tot_count(right);
-    if (is_end(right->x, right->y) && tmp_ctr < min_ctr)
-    {
-        head = right;
-        free(right);
-        min_ctr = tmp_ctr;
-    }
-    tmp_ctr = tot_count(up);
-    if (is_end(up->x, up->y) && tmp_ctr < min_ctr)
-    {
-        head = up;
-        free(up);
-        min_ctr = tmp_ctr;
-    }
-    // tmp_ctr = tot_count(left);
-    // if (is_end(left->x, left->y) && tmp_ctr < min_ctr)
-    // {
-    //     head = left;
-    //     free(left);
-    //     min_ctr = tmp_ctr;
-    // }
-    // tmp_ctr = tot_count(down);
-    // if (is_end(down->x, down->y) && tmp_ctr < min_ctr)
-    // {
-    //     head = down;
-    //     free(down);
-    //     min_ctr = tmp_ctr;
-    // }
-    return head;
+    return ret;
 }
 
-int find_opt(void)
+int find_opt(int xg, int yg)
 {
-    coord_t *head = new_coord(0, 0, risk[0][0]);
-    coord_t *right = travese(head, 1, 0);
-    coord_t *up = travese(head, 0, 1);
-    int min_ctr = added * added * 10;
-    int tmp_ctr = tot_count(right);
-    if (is_end(right->x, right->y) && tmp_ctr < min_ctr)
+    int temp_val = added * added * 10;
+    int ctr = 0;
+    int xi = 0;
+    int yi = 0;
+    coord_t *unvisited = NULL;
+    coord_t *visited = NULL;
+    coord_t *shortest = NULL;
+    coord_t *current_min = NULL;
+    coord_t *itr = NULL;
+    coord_t *current_node = NULL;
+
+    for (size_t i = 0; i < added; i++)
     {
-        head = right;
-        min_ctr = tmp_ctr;
+        for (size_t j = 0; j < added; j++)
+        {
+            unvisited = append(unvisited, j, i, risk[i][j], temp_val);
+            shortest = append(shortest, j, i, risk[i][j], temp_val);
+        }
     }
-    if (is_end(up->x, up->y) && tmp_ctr < min_ctr)
+
+    shortest->tot_ctr = 0;
+
+    while (unvisited != NULL)
     {
-        head = up;
-        min_ctr = tmp_ctr;
+        // printf("here\n");
+        itr = shortest;
+        current_min = NULL;
+        while (itr != NULL)
+        {
+            if (find_coord(visited, itr->x, itr->y) == NULL)
+            {
+                if (current_min == NULL)
+                    current_min = itr;
+                else if (itr->tot_ctr < current_min->tot_ctr)
+                {
+                    current_min = itr;
+                }
+            }
+            itr = itr->next;
+        }
+        for (size_t i = 0; i < 4; i++)
+        {
+            switch (i)
+            {
+            case 0:
+                xi = current_min->x - 1;
+                yi = current_min->y;
+                break;
+            case 1:
+                xi = current_min->x + 1;
+                yi = current_min->y;
+                break;
+            case 2:
+                xi = current_min->x;
+                yi = current_min->y - 1;
+                break;
+            case 3:
+                xi = current_min->x;
+                yi = current_min->y + 1;
+                break;
+            default:
+                break;
+            }
+            current_node = find_coord(shortest, xi, yi);
+            if (current_node != NULL)
+            {
+                temp_val = current_min->tot_ctr + current_node->val;
+                if (temp_val < current_node->tot_ctr)
+                    current_node->tot_ctr = temp_val;
+            }
+        }
+        if (current_min == NULL)
+            printf("NULL FOR CURRENT MIN \n");
+        unvisited = del_coord(unvisited, current_min->x, current_min->y);
+        visited = append(visited, current_min->x, current_min->y, current_min->val, 0);
+
+        ctr++;
+        if (ctr > 1000)
+        {
+            printf("visited: %d\n", length(visited));
+            printf("unvisited: %d\n", length(unvisited));
+            ctr = 0;
+        }
     }
-    print_list(up);
-    print_list(right);
-    return min_ctr;
+    printf("visited: %d\n", length(visited));
+    printf("unvisited: %d\n", length(unvisited));
+    print_list(shortest);
+    current_node = find_coord(shortest, xg, yg);
+    if (current_node == NULL)
+        return -1;
+
+    return current_node->tot_ctr;
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -316,8 +403,8 @@ int main(int argc, char *argv[])
     parse_file(fp, print_line, true);
     fclose(fp);
 
-    print_arr(added);
-    int tot = find_opt();
+    // print_arr(added);
+    int tot = find_opt(added - 1, added - 1);
     printf("%d\n", tot);
     fp = fopen(outp, "w");
     fprintf(fp, "Part 1 not solved yet.");
