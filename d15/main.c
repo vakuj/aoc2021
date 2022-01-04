@@ -6,7 +6,7 @@
 
 #include "../common/common.h"
 
-#define ARRSIZE 400
+#define ARRSIZE 1024
 
 #define NEWLN " \n"
 #define SPACE " "
@@ -25,7 +25,8 @@ typedef struct coord coord_t;
 char risk[ARRSIZE][ARRSIZE] = {0};
 bool been[ARRSIZE][ARRSIZE] = {0};
 
-int current_best = 0;
+int fscore_map[ARRSIZE][ARRSIZE] = {0};
+int gscore_map[ARRSIZE][ARRSIZE] = {0};
 
 int added = 0;
 
@@ -40,7 +41,7 @@ void print_arr(int len)
     {
         for (size_t j = 0; j < len; j++)
         {
-            printf("%2d", risk[i][j]);
+            printf("%d", risk[i][j]);
         }
         printf("\n");
     }
@@ -49,30 +50,22 @@ void print_arr(int len)
 void print_list(coord_t *head)
 {
     coord_t *next;
+    printf("--- Start =>\n");
     int tot_ctr = 0;
     if (head == NULL)
         printf("NULL\n");
     next = head;
     while (next != NULL)
     {
-        if (next->tot_ctr < added * added * 10)
-        {
-            tot_ctr += next->val;
+        // if (next->tot_ctr <= added * added * 10)
+        // {
+        //     tot_ctr += next->val;
 
-            printf("(%d,%d) = %d, %d (%d) \n", next->x, next->y, next->val, next->tot_ctr, tot_ctr);
-        }
+        printf("(%d,%d) = %d, %d \n", next->x, next->y, next->val, next->tot_ctr);
+        // }
         next = next->next;
     }
     printf("--- END => %d\n", tot_ctr);
-}
-bool inbounds(int x, int y)
-{
-    return (x >= 0 && y >= 0 && x < added && y < added);
-}
-
-bool is_end(int x, int y)
-{
-    return (x == added - 1 && y == added - 1);
 }
 
 bool check_coord(coord_t *this, int x, int y)
@@ -115,11 +108,8 @@ coord_t *del_coord(coord_t *head, int x, int y)
             free(found);
             break;
         }
-        else
-        {
-            prev = this;
-            this = this->next;
-        }
+        prev = this;
+        this = this->next;
     }
     return head;
 }
@@ -129,7 +119,7 @@ coord_t *find_coord(coord_t *head, int x, int y)
     coord_t *next;
     if (head == NULL)
         return NULL;
-    next = head->next;
+    next = head;
     while (next != NULL)
     {
         if (check_coord(next, x, y))
@@ -158,9 +148,6 @@ int length(coord_t *head)
 coord_t *prepend(coord_t *head, int x, int y, int val, int tot_ctr)
 {
     coord_t *new_head = new_coord(x, y, val, tot_ctr);
-    // if (is_end(x, y))
-    // print_list(head);
-    // printf("%d\n", head->val);
     if (head != NULL)
         new_head->next = head;
     return new_head;
@@ -190,170 +177,135 @@ coord_t *pop(coord_t *head)
     return next;
 }
 
-int tot_count(coord_t *head)
+bool inbounds(int x, int y)
 {
-    coord_t *next;
-    int ctr = 0;
-    if (head == NULL)
-        return 0;
-    next = head->next;
-    ctr += head->val;
-    while (next != NULL)
-    {
-        if (next->x != 0 && next->y != 0)
-            ctr += next->val;
-        next = next->next;
-    }
-    return ctr;
+    return ((x >= 0 && x < added) && (y >= 0 && y < added));
 }
 
-int min_dir(coord_t *head, coord_t *nogo, int x, int y)
+void resize_risk(int n)
 {
-    int xi = 0;
-    int yi = 0;
-    int min_risk = 10;
-    int ret = -1;
-    int weight = 0;
-    for (int i = 0; i < 4; i++)
+    int temp_risk = 0;
+    int increment = 0;
+    for (size_t i = 0; i < added * n; i++)
     {
-        switch (i)
+        for (size_t j = 0; j < added * n; j++)
         {
-        case 0:
-            xi = x + 1;
-            yi = y;
-            weight = 0;
-            break;
-        case 1:
-            xi = x;
-            yi = y + 1;
-            weight = 0;
-            break;
-        case 2:
-            xi = x - 1;
-            yi = y;
-            weight = 6;
-            break;
-        case 3:
-            xi = x;
-            yi = y - 1;
-            weight = 6;
-            break;
-        default:
-            xi = x;
-            yi = y;
-            break;
-        }
-        if (is_end(xi, yi))
-            return i;
-        if (inbounds(xi, yi))
-        {
-            if (find_coord(head, xi, yi) == NULL && find_coord(nogo, xi, yi) == NULL)
-            {
-                if (risk[yi][xi] + weight < min_risk)
-                {
-                    min_risk = risk[yi][xi] + weight;
-                    ret = i;
-                }
-            }
+            increment = (i / added + j / added);
+            temp_risk = risk[i % added][j % added];
+            risk[i][j] = increment + temp_risk;
+
+            if (risk[i][j] > 9)
+                risk[i][j] %= 9;
         }
     }
-    return ret;
+    added *= n;
 }
 
 int find_opt(int xg, int yg)
 {
-    int temp_val = added * added * 10;
-    int ctr = 0;
-    int xi = 0;
-    int yi = 0;
-    coord_t *unvisited = NULL;
-    coord_t *visited = NULL;
-    coord_t *shortest = NULL;
-    coord_t *current_min = NULL;
-    coord_t *itr = NULL;
-    coord_t *current_node = NULL;
+    // A* algorithm
+    int temp_val = added * added * 10,
+        xi = 0,
+        yi = 0,
+        xc = 0,
+        yc = 0,
+        c_gscore = 0,
+        n_gscore = 0;
+
+    coord_t *unvisited = NULL,
+            *visited = NULL,
+            *current_min = NULL,
+            *itr = NULL;
+
+    memset(gscore_map, 0, sizeof(gscore_map));
+    memset(fscore_map, 0, sizeof(fscore_map));
 
     for (size_t i = 0; i < added; i++)
     {
         for (size_t j = 0; j < added; j++)
         {
-            unvisited = append(unvisited, j, i, risk[i][j], temp_val);
-            shortest = append(shortest, j, i, risk[i][j], temp_val);
+            fscore_map[i][j] = temp_val;
+            gscore_map[i][j] = temp_val;
         }
     }
-
-    shortest->tot_ctr = 0;
+    unvisited = append(unvisited, 0, 0, 0, 0);
+    fscore_map[0][0] = 0;
+    gscore_map[0][0] = 0;
 
     while (unvisited != NULL)
     {
-        // printf("here\n");
-        itr = shortest;
+        itr = unvisited;
         current_min = NULL;
         while (itr != NULL)
         {
-            if (find_coord(visited, itr->x, itr->y) == NULL)
+            if (current_min == NULL)
+                current_min = itr;
+            else if (fscore_map[itr->y][itr->x] < current_min->tot_ctr)
             {
-                if (current_min == NULL)
-                    current_min = itr;
-                else if (itr->tot_ctr < current_min->tot_ctr)
-                {
-                    current_min = itr;
-                }
+                current_min = itr;
             }
             itr = itr->next;
+        }
+
+        xc = current_min->x;
+        yc = current_min->y;
+        c_gscore = gscore_map[yc][xc];
+
+        unvisited = del_coord(unvisited, xc, yc);
+        visited = prepend(visited, xc, yc, risk[yc][xc], fscore_map[yc][xc]);
+
+        if (xc == xg && yc == yg)
+        {
+            return fscore_map[yg][xg] - risk[0][0];
         }
         for (size_t i = 0; i < 4; i++)
         {
             switch (i)
             {
             case 0:
-                xi = current_min->x - 1;
-                yi = current_min->y;
+                xi = xc - 1;
+                yi = yc;
                 break;
             case 1:
-                xi = current_min->x + 1;
-                yi = current_min->y;
+                xi = xc + 1;
+                yi = yc;
                 break;
             case 2:
-                xi = current_min->x;
-                yi = current_min->y - 1;
+                xi = xc;
+                yi = yc - 1;
                 break;
             case 3:
-                xi = current_min->x;
-                yi = current_min->y + 1;
+                xi = xc;
+                yi = yc + 1;
                 break;
             default:
+                xi = -1;
+                yi = -1;
                 break;
             }
-            current_node = find_coord(shortest, xi, yi);
-            if (current_node != NULL)
+
+            if (inbounds(xi, yi))
             {
-                temp_val = current_min->tot_ctr + current_node->val;
-                if (temp_val < current_node->tot_ctr)
-                    current_node->tot_ctr = temp_val;
+                n_gscore = gscore_map[yi][xi];
+                temp_val = c_gscore + risk[yc][xc];
+                if (temp_val < n_gscore)
+                {
+                    gscore_map[yi][xi] = temp_val;
+                    fscore_map[yi][xi] = temp_val + risk[yi][xi];
+                }
+
+                if (find_coord(unvisited, xi, yi) == NULL && find_coord(visited, xi, yi) == NULL)
+                {
+                    unvisited = append(unvisited, xi, yi, risk[yi][xi], fscore_map[yi][xi]);
+                }
             }
         }
-        if (current_min == NULL)
-            printf("NULL FOR CURRENT MIN \n");
-        unvisited = del_coord(unvisited, current_min->x, current_min->y);
-        visited = append(visited, current_min->x, current_min->y, current_min->val, 0);
-
-        ctr++;
-        if (ctr > 1000)
-        {
-            printf("visited: %d\n", length(visited));
-            printf("unvisited: %d\n", length(unvisited));
-            ctr = 0;
-        }
     }
-    printf("visited: %d\n", length(visited));
-    printf("unvisited: %d\n", length(unvisited));
-    print_list(shortest);
-    current_node = find_coord(shortest, xg, yg);
-    if (current_node == NULL)
+    current_min = find_coord(visited, xg, yg);
+    if (current_min == NULL)
         return -1;
 
-    return current_node->tot_ctr;
+    return current_min->tot_ctr;
 }
 
 void parse_file(FILE *fp, void func(char *, int), bool silent)
@@ -403,12 +355,15 @@ int main(int argc, char *argv[])
     parse_file(fp, print_line, true);
     fclose(fp);
 
-    // print_arr(added);
-    int tot = find_opt(added - 1, added - 1);
-    printf("%d\n", tot);
+    int tot1 = find_opt(added - 1, added - 1);
+    printf("Part 1: %d\n", tot1);
+    resize_risk(5);
+    printf("Resized input data, starting new search. \n");
+    int tot2 = find_opt(added - 1, added - 1);
+    printf("Part 2: %d\n", tot2);
     fp = fopen(outp, "w");
-    fprintf(fp, "Part 1 not solved yet.");
-    fprintf(fp, "Part 2 not solved yet.");
+    fprintf(fp, "Part 1\nMinimum risk: %d\n", tot1);
+    fprintf(fp, "Part 2\nMinimum risk: %d\n", tot2);
     fclose(fp);
     printf("Done, see \"%s\" for result\n", outp);
     return 0;

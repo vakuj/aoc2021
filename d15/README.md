@@ -75,7 +75,7 @@ Here is the full five-times-as-large version of the first example above, with th
     23142496323425351743453646285456475739656758684176
     34221556924533266713564437782467554889357866599146
     ...
-    
+
 The total risk of this path is 315 (the starting position is still never entered, so its risk is not counted).
 
 
